@@ -455,7 +455,7 @@ def drawThreePointForm(emitter_pos, walls):
             pygame.draw.circle(display, segment['wall_color'], 
                              (int(segment['sample_point'][0]), int(segment['sample_point'][1])), 2)
 
-def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray_segments):
+def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray_segments, source_sample_index=None):
     """Recursively collect three-point-form ray segments with reflections"""
     if not walls or reflection_depth > MAX_REFLECTIONS:
         return
@@ -483,118 +483,197 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
     # Store reflection points for next iteration
     reflection_points = []
     
-    for wall in walls:
-        # Skip walls that don't reflect light (reflectance = 0)
-        if wall.reflectance <= 0:
-            continue
+    # For first-order rays (reflection_depth == 0), sample all points on all walls
+    # For higher-order reflections, only sample corresponding indexed points
+    if reflection_depth == 0:
+        # First-order: sample all points on all walls
+        for wall in walls:
+            # Skip walls that don't reflect light (reflectance = 0)
+            if wall.reflectance <= 0:
+                continue
+                
+            # Sample points on this wall (same number of samples for all reflection depths)
+            sample_points = sample_points_on_wall(wall, NUM_SAMPLES)
             
-        # Sample points on this wall (fewer samples for higher reflection depths)
-        samples_for_depth = max(1, NUM_SAMPLES - reflection_depth)
-        sample_points = sample_points_on_wall(wall, samples_for_depth)
-        
-        for point_x, point_y, local_t in sample_points:
-            # Check if direct line from emitter to this point is occluded
-            if not is_point_occluded(emitter_pos, (point_x, point_y), walls, wall):
-                # Calculate final color for this ray segment
-                final_color = current_color
-                
-                # If this is a reflection from a previous surface, apply BSDF based on actual direction
-                if reflection_source is not None:
-                    # Calculate actual direction from reflection point to this sample point
-                    actual_direction_x = point_x - reflection_source['original_point'][0]
-                    actual_direction_y = point_y - reflection_source['original_point'][1]
-                    actual_length = math.sqrt(actual_direction_x**2 + actual_direction_y**2)
-                    
-                    if actual_length > 0:
-                        actual_viewing_dir = (actual_direction_x / actual_length, actual_direction_y / actual_length)
-                        
-                        # Calculate BSDF using the wall reflectance (not cumulative reflectance)
-                        # The current_color already contains the cumulative energy reduction
-                        reflecting_wall = reflection_source['wall']
-                        phong_brightness = calculate_phong_brightness(
-                            reflection_source['incident_dir'], 
-                            reflection_source['wall_normal'], 
-                            reflecting_wall.reflectance,  # Use the actual wall's reflectance for BSDF
-                            PHONG_EXPONENT, 
-                            actual_viewing_dir
-                        )
-                        
-                        # Apply BSDF brightness to color - this naturally includes energy loss
-                        # The BSDF caps at wall reflectance, ensuring energy conservation
-                        if isinstance(current_color, tuple):
-                            final_color = tuple(max(0, int(c * phong_brightness)) for c in current_color)
-                        else:
-                            # Convert string color to RGB and apply brightness
-                            base_intensity = 255
-                            intensity = int(base_intensity * phong_brightness)
-                            final_color = (intensity, intensity, intensity)
-                else:
-                    # For first-order rays (direct from emitter), use full color
+            for sample_index, (point_x, point_y, local_t) in enumerate(sample_points):
+                # Check if direct line from emitter to this point is occluded
+                if not is_point_occluded(emitter_pos, (point_x, point_y), walls, wall):
+                    # For first-order rays, use full color
                     final_color = current_color
-                
-                # Store ray segment instead of drawing immediately
-                segment = {
-                    'start': emitter_pos,
-                    'end': (point_x, point_y),
-                    'color': final_color,
-                    'reflection_order': reflection_depth
-                }
-                
-                # Add sample point info for first-order rays
-                if reflection_depth == 0:
+                    
+                    # Store ray segment instead of drawing immediately
+                    segment = {
+                        'start': emitter_pos,
+                        'end': (point_x, point_y),
+                        'color': final_color,
+                        'reflection_order': reflection_depth
+                    }
+                    
+                    # Add sample point info for first-order rays
                     segment['sample_point'] = (point_x, point_y)
                     segment['wall_color'] = wall.color
-                
-                ray_segments.append(segment)
-                
-                # If we haven't reached max reflections and wall can reflect, prepare for next reflection
-                if reflection_depth < MAX_REFLECTIONS and wall.reflectance > 0:
-                    # Calculate incident ray direction
-                    incident_dx = point_x - emitter_pos[0]
-                    incident_dy = point_y - emitter_pos[1]
-                    incident_length = math.sqrt(incident_dx**2 + incident_dy**2)
                     
-                    if incident_length > 0:
-                        incident_dir = (incident_dx / incident_length, incident_dy / incident_length)
+                    ray_segments.append(segment)
+                    
+                    # If we haven't reached max reflections and wall can reflect, prepare for next reflection
+                    if reflection_depth < MAX_REFLECTIONS and wall.reflectance > 0:
+                        # Calculate incident ray direction
+                        incident_dx = point_x - emitter_pos[0]
+                        incident_dy = point_y - emitter_pos[1]
+                        incident_length = math.sqrt(incident_dx**2 + incident_dy**2)
                         
-                        # Calculate reflected direction using wall's reflection method
-                        reflected_dir = wall.reflect_ray(incident_dir)
-                        
-                        # Get wall normal for later BSDF calculation
-                        wall_normal = wall.get_normal()
-                        
-                        # Calculate new emitter position (slightly offset from reflection point)
-                        offset = 0.1
-                        new_emitter_x = point_x + reflected_dir[0] * offset
-                        new_emitter_y = point_y + reflected_dir[1] * offset
-                        
-                        # Check if the reflected ray direction is not immediately blocked
-                        # Test a short distance along the reflected ray to see if it's clear
-                        test_distance = 10.0  # Test 10 pixels along the reflected direction
-                        test_end_x = new_emitter_x + reflected_dir[0] * test_distance
-                        test_end_y = new_emitter_y + reflected_dir[1] * test_distance
-                        
-                        # Only continue reflection if the reflected ray has a clear path
-                        if not is_point_occluded((new_emitter_x, new_emitter_y), (test_end_x, test_end_y), walls, None):
-                            # For energy conservation, use the actual reflected energy (final_color) 
-                            # rather than the incoming energy (current_color)
-                            # This ensures that next reflection gets energy based on what was actually reflected
-                            if isinstance(final_color, tuple):
-                                # Use the actual reflected energy (final_color) for next reflection
-                                reduced_color = final_color
-                            else:
-                                # Convert to tuple if needed
-                                reduced_color = (final_color, final_color, final_color) if isinstance(final_color, int) else final_color
+                        if incident_length > 0:
+                            incident_dir = (incident_dx / incident_length, incident_dy / incident_length)
                             
-                            # Store reflection data for recursive call
-                            reflection_points.append({
-                                'emitter': (new_emitter_x, new_emitter_y),
-                                'color': reduced_color,  # Use actual reflected energy for next reflection level
-                                'original_point': (point_x, point_y),
-                                'wall': wall,
-                                'incident_dir': incident_dir,
-                                'wall_normal': wall_normal
-                            })
+                            # Calculate reflected direction using wall's reflection method
+                            reflected_dir = wall.reflect_ray(incident_dir)
+                            
+                            # Get wall normal for later BSDF calculation
+                            wall_normal = wall.get_normal()
+                            
+                            # Calculate new emitter position (slightly offset from reflection point)
+                            offset = 0.1
+                            new_emitter_x = point_x + reflected_dir[0] * offset
+                            new_emitter_y = point_y + reflected_dir[1] * offset
+                            
+                            # Check if the reflected ray direction is not immediately blocked
+                            # Test a short distance along the reflected ray to see if it's clear
+                            test_distance = 10.0  # Test 10 pixels along the reflected direction
+                            test_end_x = new_emitter_x + reflected_dir[0] * test_distance
+                            test_end_y = new_emitter_y + reflected_dir[1] * test_distance
+                            
+                            # Only continue reflection if the reflected ray has a clear path
+                            if not is_point_occluded((new_emitter_x, new_emitter_y), (test_end_x, test_end_y), walls, None):
+                                # For energy conservation, use the actual reflected energy (final_color) 
+                                # rather than the incoming energy (current_color)
+                                # This ensures that next reflection gets energy based on what was actually reflected
+                                if isinstance(final_color, tuple):
+                                    # Use the actual reflected energy (final_color) for next reflection
+                                    reduced_color = final_color
+                                else:
+                                    # Convert to tuple if needed
+                                    reduced_color = (final_color, final_color, final_color) if isinstance(final_color, int) else final_color
+                                
+                                # Store reflection data for recursive call
+                                reflection_points.append({
+                                    'emitter': (new_emitter_x, new_emitter_y),
+                                    'color': reduced_color,  # Use actual reflected energy for next reflection level
+                                    'original_point': (point_x, point_y),
+                                    'wall': wall,
+                                    'incident_dir': incident_dir,
+                                    'wall_normal': wall_normal,
+                                    'sample_index': sample_index  # Pass the sample index for structured sampling
+                                })
+    else:
+        # Higher-order reflections: only sample the corresponding indexed point on each wall
+        if source_sample_index is not None:
+            for wall in walls:
+                # Skip walls that don't reflect light (reflectance = 0)
+                if wall.reflectance <= 0:
+                    continue
+                    
+                # Sample points on this wall (same number of samples for all reflection depths)
+                sample_points = sample_points_on_wall(wall, NUM_SAMPLES)
+                
+                # Only sample the point with the same index as the source
+                if source_sample_index < len(sample_points):
+                    point_x, point_y, local_t = sample_points[source_sample_index]
+                    
+                    # Check if direct line from emitter to this point is occluded
+                    if not is_point_occluded(emitter_pos, (point_x, point_y), walls, wall):
+                        # Calculate final color for this ray segment
+                        final_color = current_color
+                        
+                        # If this is a reflection from a previous surface, apply BSDF based on actual direction
+                        if reflection_source is not None:
+                            # Calculate actual direction from reflection point to this sample point
+                            actual_direction_x = point_x - reflection_source['original_point'][0]
+                            actual_direction_y = point_y - reflection_source['original_point'][1]
+                            actual_length = math.sqrt(actual_direction_x**2 + actual_direction_y**2)
+                            
+                            if actual_length > 0:
+                                actual_viewing_dir = (actual_direction_x / actual_length, actual_direction_y / actual_length)
+                                
+                                # Calculate BSDF using the wall reflectance (not cumulative reflectance)
+                                # The current_color already contains the cumulative energy reduction
+                                reflecting_wall = reflection_source['wall']
+                                phong_brightness = calculate_phong_brightness(
+                                    reflection_source['incident_dir'], 
+                                    reflection_source['wall_normal'], 
+                                    reflecting_wall.reflectance,  # Use the actual wall's reflectance for BSDF
+                                    PHONG_EXPONENT, 
+                                    actual_viewing_dir
+                                )
+                                
+                                # Apply BSDF brightness to color - this naturally includes energy loss
+                                # The BSDF caps at wall reflectance, ensuring energy conservation
+                                if isinstance(current_color, tuple):
+                                    final_color = tuple(max(0, int(c * phong_brightness)) for c in current_color)
+                                else:
+                                    # Convert string color to RGB and apply brightness
+                                    base_intensity = 255
+                                    intensity = int(base_intensity * phong_brightness)
+                                    final_color = (intensity, intensity, intensity)
+                        
+                        # Store ray segment instead of drawing immediately
+                        segment = {
+                            'start': emitter_pos,
+                            'end': (point_x, point_y),
+                            'color': final_color,
+                            'reflection_order': reflection_depth
+                        }
+                        
+                        ray_segments.append(segment)
+                        
+                        # If we haven't reached max reflections and wall can reflect, prepare for next reflection
+                        if reflection_depth < MAX_REFLECTIONS and wall.reflectance > 0:
+                            # Calculate incident ray direction
+                            incident_dx = point_x - emitter_pos[0]
+                            incident_dy = point_y - emitter_pos[1]
+                            incident_length = math.sqrt(incident_dx**2 + incident_dy**2)
+                            
+                            if incident_length > 0:
+                                incident_dir = (incident_dx / incident_length, incident_dy / incident_length)
+                                
+                                # Calculate reflected direction using wall's reflection method
+                                reflected_dir = wall.reflect_ray(incident_dir)
+                                
+                                # Get wall normal for later BSDF calculation
+                                wall_normal = wall.get_normal()
+                                
+                                # Calculate new emitter position (slightly offset from reflection point)
+                                offset = 0.1
+                                new_emitter_x = point_x + reflected_dir[0] * offset
+                                new_emitter_y = point_y + reflected_dir[1] * offset
+                                
+                                # Check if the reflected ray direction is not immediately blocked
+                                # Test a short distance along the reflected ray to see if it's clear
+                                test_distance = 10.0  # Test 10 pixels along the reflected direction
+                                test_end_x = new_emitter_x + reflected_dir[0] * test_distance
+                                test_end_y = new_emitter_y + reflected_dir[1] * test_distance
+                                
+                                # Only continue reflection if the reflected ray has a clear path
+                                if not is_point_occluded((new_emitter_x, new_emitter_y), (test_end_x, test_end_y), walls, None):
+                                    # For energy conservation, use the actual reflected energy (final_color) 
+                                    # rather than the incoming energy (current_color)
+                                    # This ensures that next reflection gets energy based on what was actually reflected
+                                    if isinstance(final_color, tuple):
+                                        # Use the actual reflected energy (final_color) for next reflection
+                                        reduced_color = final_color
+                                    else:
+                                        # Convert to tuple if needed
+                                        reduced_color = (final_color, final_color, final_color) if isinstance(final_color, int) else final_color
+                                    
+                                    # Store reflection data for recursive call
+                                    reflection_points.append({
+                                        'emitter': (new_emitter_x, new_emitter_y),
+                                        'color': reduced_color,  # Use actual reflected energy for next reflection level
+                                        'original_point': (point_x, point_y),
+                                        'wall': wall,
+                                        'incident_dir': incident_dir,
+                                        'wall_normal': wall_normal,
+                                        'sample_index': source_sample_index  # Continue with same sample index
+                                    })
     
     # Process reflections recursively
     for reflection_data in reflection_points:
@@ -605,7 +684,8 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
             walls, 
             reflection_depth + 1, 
             reflection_data,  # Pass the full reflection data instead of just color
-            ray_segments
+            ray_segments,
+            reflection_data.get('sample_index')  # Pass the sample index for structured sampling
         )
 
 def calculate_phong_brightness(incident_dir, wall_normal, wall_reflectance, phong_exponent=48, viewing_dir=None):
