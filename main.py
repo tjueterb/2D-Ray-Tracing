@@ -13,7 +13,7 @@ NUM_RAYS = 50 # Must be between 1 and 360
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 NUM_WALLS = 5 # The amount of randomly generated walls
 ENABLE_REFLECTIONS = True # Enable first-order reflections
-MAX_REFLECTIONS = 1 # Maximum number of reflections per ray
+MAX_REFLECTIONS = 2 # Maximum number of reflections per ray
 #------------------
 
 screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -218,11 +218,13 @@ def drawRays(rays, walls, color = 'white'):
                     reflected_angle = math.atan2(reflected_dir[1], reflected_dir[0])
                     current_ray = Ray(offset_x, offset_y, reflected_angle, reflection_count + 1)
                     
-                    # Make reflected rays slightly dimmer
+                    # Make reflected rays 50% darker with each reflection
                     if isinstance(current_color, str):
-                        current_color = (200, 200, 200)  # Dimmer white for reflections
+                        # Convert white to RGB and apply 50% darkening
+                        current_color = (int(255 * 0.5), int(255 * 0.5), int(255 * 0.5))
                     else:
-                        current_color = tuple(max(50, int(c * 0.7)) for c in current_color)
+                        # Apply 50% darkening (multiply by 0.5)
+                        current_color = tuple(max(0, int(c * 0.5)) for c in current_color)
                 else:
                     break  # No more reflections
             else:
