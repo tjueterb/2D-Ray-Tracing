@@ -476,18 +476,15 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
     if not walls or reflection_depth > MAX_REFLECTIONS:
         return
     
-    # Calculate color intensity based on reflection depth
+    # Use the input color directly (no global dimming factor)
     if isinstance(color, str):
         if color == 'white':
             base_intensity = 255
         else:
             base_intensity = 255  # Default for other color names
-        intensity = int(base_intensity * (0.7 ** reflection_depth))  # Dim with each reflection
-        current_color = (intensity, intensity, intensity)
+        current_color = (base_intensity, base_intensity, base_intensity)
     else:
-        # Apply additional dimming for higher-order reflections
-        dimming_factor = 0.7 ** reflection_depth
-        current_color = tuple(max(0, int(c * dimming_factor)) for c in color)
+        current_color = color
     
     # Store reflection points for next iteration
     reflection_points = []
