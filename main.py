@@ -74,11 +74,11 @@ class Ray:
         return None
 
 class Wall:
-    def __init__(self, start_pos, end_pos, color = 'white', reflects=True):
+    def __init__(self, start_pos, end_pos, color = 'white', reflectance=0.7):
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.color = color
-        self.reflects = reflects  # Whether this wall reflects rays
+        self.reflectance = reflectance  # Reflectance value between 0 and 1 (0 = absorbs all light, 1 = reflects all light)
         self.slope_x = end_pos[0] - start_pos[0]
         self.slope_y = end_pos[1] - start_pos[1]
         if self.slope_x == 0:
@@ -224,7 +224,7 @@ def drawRays(rays, walls, color = 'white'):
                     lastClosestPoint = closestPoint
                 
                 # Create reflected ray if reflections are enabled and we haven't hit max reflections
-                if ENABLE_REFLECTIONS and reflection_count < MAX_REFLECTIONS and closestWall is not None and closestWall.reflects:
+                if ENABLE_REFLECTIONS and reflection_count < MAX_REFLECTIONS and closestWall is not None and closestWall.reflectance > 0:
                     # Calculate reflected direction
                     reflected_dir = closestWall.reflect_ray(current_ray.dir)
                     
@@ -237,13 +237,13 @@ def drawRays(rays, walls, color = 'white'):
                     reflected_angle = math.atan2(reflected_dir[1], reflected_dir[0])
                     current_ray = Ray(offset_x, offset_y, reflected_angle, reflection_count + 1)
                     
-                    # Make reflected rays 50% darker with each reflection
+                    # Apply dimming based on wall reflectance
                     if isinstance(current_color, str):
-                        # Convert white to RGB and apply 50% darkening
-                        current_color = (int(255 * 0.5), int(255 * 0.5), int(255 * 0.5))
+                        # Convert white to RGB and apply reflectance-based dimming
+                        current_color = (int(255 * closestWall.reflectance), int(255 * closestWall.reflectance), int(255 * closestWall.reflectance))
                     else:
-                        # Apply 50% darkening (multiply by 0.5)
-                        current_color = tuple(max(0, int(c * 0.5)) for c in current_color)
+                        # Apply reflectance-based dimming (multiply by reflectance)
+                        current_color = tuple(max(0, int(c * closestWall.reflectance)) for c in current_color)
                 else:
                     break  # No more reflections
             else:
@@ -306,7 +306,7 @@ def generateWalls():
         non_reflecting_wall_x = emitter_x + 150  # 150 pixels to the right
         non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
         non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
-        walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflects=False))
+        walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
     else:
         # Original random walls mode
         for i in range(NUM_WALLS):
