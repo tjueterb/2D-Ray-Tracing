@@ -10,10 +10,11 @@ pygame.init()
 # -----Options-----
 WINDOW_SIZE = (1920, 1080) # Width x Height in pixels
 NUM_RAYS = 250 # Must be between 1 and 360
-NUM_SAMPLES = 3 # Number of sample points per wall for three-point-form method
+NUM_SAMPLES = 5 # Number of sample points per wall for three-point-form method
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 ENABLE_REFLECTIONS = True # Enable first-order reflections
 MAX_REFLECTIONS = 1 # Maximum number of reflections per ray
+PHONG_EXPONENT = 86 # Phong exponent for specular reflections (higher = more specular)
 DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
 #------------------
 
@@ -74,7 +75,7 @@ class Ray:
         return None
 
 class Wall:
-    def __init__(self, start_pos, end_pos, color = 'white', reflectance=0.7):
+    def __init__(self, start_pos, end_pos, color = 'white', reflectance=1):
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.color = color
@@ -248,12 +249,14 @@ def drawRays(rays, walls, color = 'white'):
                     reflected_angle = math.atan2(reflected_dir[1], reflected_dir[0])
                     current_ray = Ray(offset_x, offset_y, reflected_angle, reflection_count + 1)
                     
-                    # Apply dimming based on wall reflectance
+                    # Apply simple reflectance dimming (no BSDF in traditional ray tracing)
                     if isinstance(current_color, str):
-                        # Convert white to RGB and apply reflectance-based dimming
-                        current_color = (int(255 * closestWall.reflectance), int(255 * closestWall.reflectance), int(255 * closestWall.reflectance))
+                        # Convert white to RGB and apply reflectance
+                        base_intensity = 255
+                        intensity = int(base_intensity * closestWall.reflectance)
+                        current_color = (intensity, intensity, intensity)
                     else:
-                        # Apply reflectance-based dimming (multiply by reflectance)
+                        # Apply reflectance (multiply by wall reflectance)
                         current_color = tuple(max(0, int(c * closestWall.reflectance)) for c in current_color)
                 else:
                     break  # No more reflections
@@ -454,11 +457,22 @@ def drawThreePointForm(emitter_pos, walls):
     if not walls:
         return
     
-    # Draw direct rays (first-order)
-    drawThreePointFormRecursive(emitter_pos, walls, 0, 'white')
+    # Collect all ray segments from recursive drawing
+    ray_segments = []
+    drawThreePointFormRecursive(emitter_pos, walls, 0, 'white', ray_segments)
+    
+    # Draw ray segments in reverse order (highest reflection order first, original rays last)
+    ray_segments.sort(key=lambda segment: segment['reflection_order'], reverse=True)
+    for segment in ray_segments:
+        pygame.draw.line(display, segment['color'], segment['start'], segment['end'], 1)
+        
+        # Draw sample point dots only for first-order rays
+        if segment['reflection_order'] == 0 and 'sample_point' in segment:
+            pygame.draw.circle(display, segment['wall_color'], 
+                             (int(segment['sample_point'][0]), int(segment['sample_point'][1])), 2)
 
-def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color):
-    """Recursively draw three-point-form rays with reflections"""
+def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray_segments):
+    """Recursively collect three-point-form ray segments with reflections"""
     if not walls or reflection_depth > MAX_REFLECTIONS:
         return
     
@@ -479,18 +493,30 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color):
     reflection_points = []
     
     for wall in walls:
+        # Skip walls that don't reflect light (reflectance = 0)
+        if wall.reflectance <= 0:
+            continue
+            
         # Sample points on this wall
         sample_points = sample_points_on_wall(wall, NUM_SAMPLES)
         
         for point_x, point_y, local_t in sample_points:
             # Check if direct line from emitter to this point is occluded
             if not is_point_occluded(emitter_pos, (point_x, point_y), walls, wall):
-                # Draw direct ray from emitter to visible point
-                pygame.draw.line(display, current_color, emitter_pos, (point_x, point_y), 1)
+                # Store ray segment instead of drawing immediately
+                segment = {
+                    'start': emitter_pos,
+                    'end': (point_x, point_y),
+                    'color': current_color,
+                    'reflection_order': reflection_depth
+                }
                 
-                # Draw a small dot at the sample point for visualization (only for first-order)
+                # Add sample point info for first-order rays
                 if reflection_depth == 0:
-                    pygame.draw.circle(display, wall.color, (int(point_x), int(point_y)), 2)
+                    segment['sample_point'] = (point_x, point_y)
+                    segment['wall_color'] = wall.color
+                
+                ray_segments.append(segment)
                 
                 # If we haven't reached max reflections and wall can reflect, prepare for next reflection
                 if reflection_depth < MAX_REFLECTIONS and wall.reflectance > 0:
@@ -505,23 +531,42 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color):
                         # Calculate reflected direction using wall's reflection method
                         reflected_dir = wall.reflect_ray(incident_dir)
                         
+                        # Get wall normal for Phong calculation
+                        wall_normal = wall.get_normal()
+                        
+                        # Calculate brightness using Phong BSDF (now based on incident angle)
+                        phong_brightness = calculate_phong_brightness(
+                            incident_dir, wall_normal, wall.reflectance, PHONG_EXPONENT
+                        )
+                        
                         # Calculate new emitter position (slightly offset from reflection point)
                         offset = 0.1
                         new_emitter_x = point_x + reflected_dir[0] * offset
                         new_emitter_y = point_y + reflected_dir[1] * offset
                         
-                        # Calculate color for reflected ray (apply wall reflectance)
-                        if isinstance(current_color, tuple):
-                            reflected_color = tuple(max(0, int(c * wall.reflectance)) for c in current_color)
-                        else:
-                            reflected_color = current_color
+                        # Check if the reflected ray direction is not immediately blocked
+                        # Test a short distance along the reflected ray to see if it's clear
+                        test_distance = 10.0  # Test 10 pixels along the reflected direction
+                        test_end_x = new_emitter_x + reflected_dir[0] * test_distance
+                        test_end_y = new_emitter_y + reflected_dir[1] * test_distance
                         
-                        # Store reflection data for recursive call
-                        reflection_points.append({
-                            'emitter': (new_emitter_x, new_emitter_y),
-                            'color': reflected_color,
-                            'original_point': (point_x, point_y)
-                        })
+                        # Only continue reflection if the reflected ray has a clear path
+                        if not is_point_occluded((new_emitter_x, new_emitter_y), (test_end_x, test_end_y), walls, None):
+                            # Calculate color for reflected ray (apply Phong brightness)
+                            if isinstance(current_color, tuple):
+                                reflected_color = tuple(max(0, int(c * phong_brightness)) for c in current_color)
+                            else:
+                                # Convert string color to RGB and apply brightness
+                                base_intensity = 255
+                                intensity = int(base_intensity * phong_brightness)
+                                reflected_color = (intensity, intensity, intensity)
+                            
+                            # Store reflection data for recursive call
+                            reflection_points.append({
+                                'emitter': (new_emitter_x, new_emitter_y),
+                                'color': reflected_color,
+                                'original_point': (point_x, point_y)
+                            })
     
     # Process reflections recursively
     for reflection_data in reflection_points:
@@ -529,8 +574,55 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color):
             reflection_data['emitter'], 
             walls, 
             reflection_depth + 1, 
-            reflection_data['color']
+            reflection_data['color'],
+            ray_segments
         )
+
+def calculate_phong_brightness(incident_dir, wall_normal, wall_reflectance, phong_exponent=16, viewing_dir=None):
+    """
+    Calculate brightness using Phong BSDF model
+    
+    Args:
+        incident_dir: Normalized incident ray direction
+        wall_normal: Normalized wall normal
+        wall_reflectance: Wall reflectance coefficient (0-1)
+        phong_exponent: Phong exponent controlling specularity (higher = more specular)
+        viewing_dir: Normalized outgoing/viewing direction (direction of reflected ray)
+    
+    Returns:
+        Brightness factor (0-1) combining reflectance and specularity
+    """
+    # Make sure normal points toward the incident ray
+    dot_product = incident_dir[0] * wall_normal[0] + incident_dir[1] * wall_normal[1]
+    if dot_product > 0:
+        wall_normal = (-wall_normal[0], -wall_normal[1])
+        dot_product = -dot_product
+    
+    # Calculate perfect specular reflection direction
+    # R = I - 2(I·N)N where I is incident, N is normal, R is perfect reflection
+    perfect_reflection_x = incident_dir[0] - 2 * dot_product * wall_normal[0]
+    perfect_reflection_y = incident_dir[1] - 2 * dot_product * wall_normal[1]
+    
+    # Use incident angle for BSDF calculation (this will show variation with ray angle)
+    incident_factor = abs(dot_product)  # cos(incident_angle)
+    
+    # Apply Phong specular based on incident angle 
+    # Rays that hit more perpendicularly will reflect more strongly
+    specular_factor = incident_factor ** (phong_exponent / 16.0)
+    
+    # Lambert diffuse term for base lighting
+    diffuse_factor = incident_factor
+    
+    # Combine diffuse and specular components - make specular more dominant
+    diffuse_weight = 0.1
+    specular_weight = 0.9
+    
+    brightness = wall_reflectance * (diffuse_weight * diffuse_factor + specular_weight * specular_factor)
+    
+    # Reduce minimum brightness to see more dramatic effects
+    brightness = max(0.01, min(1.0, brightness))
+    
+    return brightness
 
 def draw():
     display.fill((0, 0, 0))
@@ -599,6 +691,13 @@ while running:
             elif event.key == pygame.K_RIGHT:
                 controllable_wall_angle += 5  # 5 degrees per key press
                 generateWalls()
+            # Phong exponent controls (work in both modes)
+            elif event.key == pygame.K_q:
+                PHONG_EXPONENT = max(1, PHONG_EXPONENT - 2)  # Decrease specularity
+                print(f"Phong exponent decreased to: {PHONG_EXPONENT}")
+            elif event.key == pygame.K_e:
+                PHONG_EXPONENT = min(64, PHONG_EXPONENT + 2)  # Increase specularity
+                print(f"Phong exponent increased to: {PHONG_EXPONENT}")
         
         # Wall controls work in both modes
         # Control the controllable wall position with mouse movement
