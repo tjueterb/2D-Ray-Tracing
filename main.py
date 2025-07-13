@@ -313,6 +313,21 @@ def generateWalls():
         controllable_wall_end = (controllable_center_x + wall_dx, controllable_center_y + wall_dy)
         walls.append(Wall(controllable_wall_start, controllable_wall_end, 'yellow'))
         
+        # Second static wall (below the first one, also at 45 degrees)
+        second_wall_center_x = WINDOW_SIZE[0] * 0.6
+        second_wall_center_y = WINDOW_SIZE[1] * 0.8  # Lower than the first wall
+        second_wall_length = 350
+        
+        # Calculate wall endpoints for 45-degree angle (same as first wall)
+        second_angle_rad = math.radians(45)
+        second_half_length = second_wall_length / 2
+        second_dx = math.cos(second_angle_rad) * second_half_length
+        second_dy = math.sin(second_angle_rad) * second_half_length
+        
+        second_wall_start = (second_wall_center_x - second_dx, second_wall_center_y - second_dy)
+        second_wall_end = (second_wall_center_x + second_dx, second_wall_center_y + second_dy)
+        walls.append(Wall(second_wall_start, second_wall_end, 'orange'))
+        
         # Non-reflecting wall to the right of the emitter
         non_reflecting_wall_x = emitter_x + 150  # 150 pixels to the right
         non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
