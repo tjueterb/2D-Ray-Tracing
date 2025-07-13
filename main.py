@@ -10,11 +10,11 @@ pygame.init()
 # -----Options-----
 WINDOW_SIZE = (1920, 1080) # Width x Height in pixels
 NUM_RAYS = 250 # Must be between 1 and 360
-NUM_SAMPLES = 5 # Number of sample points per wall for three-point-form method
+NUM_SAMPLES = 6 # Number of sample points per wall for three-point-form method
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 ENABLE_REFLECTIONS = True # Enable first-order reflections
-MAX_REFLECTIONS = 2 # Maximum number of reflections per ray
-PHONG_EXPONENT = 1000 # Phong exponent for specular reflections (higher = more specular)
+MAX_REFLECTIONS = 3 # Maximum number of reflections per ray
+PHONG_EXPONENT = 100 # Phong exponent for specular reflections (higher = more specular)
 DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
 #------------------
 
@@ -721,7 +721,7 @@ while running:
                     print(f"Rays decreased to: {NUM_RAYS}")  # Debug output
                     regenerate_rays()
                 else:
-                    NUM_SAMPLES = max(5, NUM_SAMPLES - 1)  # Decrease by 5, min 5
+                    NUM_SAMPLES = max(1, NUM_SAMPLES - 1)  # Decrease by 5, min 5
                     print(f"Samples decreased to: {NUM_SAMPLES}")  # Debug output
             # Toggle between demo mode and alternative mode with 'D' key
             elif event.key == pygame.K_d:
