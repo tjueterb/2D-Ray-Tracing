@@ -275,8 +275,17 @@ def drawRays(rays, walls, color = 'white'):
                     lastClosestPoint = ray_end
                 break  # No collision found
     
-    # Draw ray segments in reverse order (highest reflection order first, original rays last)
-    ray_segments.sort(key=lambda segment: segment['reflection_order'], reverse=True)
+    # Draw ray segments sorted by brightness (darkest first, brightest last)
+    def get_brightness(segment):
+        color = segment['color']
+        if isinstance(color, str):
+            return 255  # White is brightest
+        elif isinstance(color, tuple):
+            # Calculate brightness as average of RGB values
+            return sum(color) / len(color)
+        return 0
+    
+    ray_segments.sort(key=get_brightness)
     for segment in ray_segments:
         pygame.draw.line(display, segment['color'], segment['start'], segment['end'])
 
@@ -461,8 +470,17 @@ def drawThreePointForm(emitter_pos, walls):
     ray_segments = []
     drawThreePointFormRecursive(emitter_pos, walls, 0, 'white', ray_segments)
     
-    # Draw ray segments in reverse order (highest reflection order first, original rays last)
-    ray_segments.sort(key=lambda segment: segment['reflection_order'], reverse=True)
+    # Draw ray segments sorted by brightness (darkest first, brightest last)
+    def get_brightness(segment):
+        color = segment['color']
+        if isinstance(color, str):
+            return 255  # White is brightest
+        elif isinstance(color, tuple):
+            # Calculate brightness as average of RGB values
+            return sum(color) / len(color)
+        return 0
+    
+    ray_segments.sort(key=get_brightness)
     for segment in ray_segments:
         pygame.draw.line(display, segment['color'], segment['start'], segment['end'], 1)
         
