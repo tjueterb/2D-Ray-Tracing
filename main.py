@@ -14,6 +14,7 @@ SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 
 NUM_WALLS = 5 # The amount of randomly generated walls
 ENABLE_REFLECTIONS = True # Enable first-order reflections
 MAX_REFLECTIONS = 2 # Maximum number of reflections per ray
+DEMO_MODE = False # Enable demo mode with controllable walls
 #------------------
 
 screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -25,6 +26,13 @@ running = True
 rays = []
 walls = []
 particles = []
+
+# Demo mode variables
+emitter_x = 100
+emitter_y = WINDOW_SIZE[1] - 100
+controllable_wall_angle = 45  # degrees
+controllable_wall_x = 400  # X position of controllable wall
+controllable_wall_y = 400  # Y position of controllable wall
 
 class Ray:
     def __init__(self, x, y, angle, reflection_depth=0):
@@ -260,17 +268,46 @@ def drawRays(rays, walls, color = 'white'):
 def generateWalls():
     walls.clear()
 
-    # walls.append(Wall((0, 0), (WINDOW_SIZE[0], 0)))
-    # walls.append(Wall((0, 0), (0, WINDOW_SIZE[1])))
-    # walls.append(Wall((WINDOW_SIZE[0], 0), (WINDOW_SIZE[0], WINDOW_SIZE[1])))
-    # walls.append(Wall((0, WINDOW_SIZE[1]), (WINDOW_SIZE[0], WINDOW_SIZE[1])))
-
-    for i in range(NUM_WALLS):
-        start_x = random.randint(0, WINDOW_SIZE[0])
-        start_y = random.randint(0, WINDOW_SIZE[1])
-        end_x = random.randint(0, WINDOW_SIZE[0])
-        end_y = random.randint(0, WINDOW_SIZE[1])
-        walls.append(Wall((start_x, start_y), (end_x, end_y)))
+    if DEMO_MODE:
+        # Demo mode: Two walls at 45 degrees
+        # Fixed wall (farther from emitter)
+        fixed_wall_center_x = WINDOW_SIZE[0] * 0.7
+        fixed_wall_center_y = WINDOW_SIZE[1] * 0.3
+        fixed_wall_length = 200
+        
+        # Calculate wall endpoints for 45-degree angle
+        angle_rad = math.radians(45)
+        half_length = fixed_wall_length / 2
+        dx = math.cos(angle_rad) * half_length
+        dy = math.sin(angle_rad) * half_length
+        
+        fixed_wall_start = (fixed_wall_center_x - dx, fixed_wall_center_y - dy)
+        fixed_wall_end = (fixed_wall_center_x + dx, fixed_wall_center_y + dy)
+        walls.append(Wall(fixed_wall_start, fixed_wall_end, 'red'))
+        
+        # Controllable wall (closer to emitter)
+        # Position directly controlled by mouse
+        controllable_center_x = controllable_wall_x
+        controllable_center_y = controllable_wall_y
+        
+        # Wall orientation controlled by scroll wheel
+        wall_orientation_angle = math.radians(controllable_wall_angle)
+        wall_length = 150
+        wall_half_length = wall_length / 2
+        wall_dx = math.cos(wall_orientation_angle) * wall_half_length
+        wall_dy = math.sin(wall_orientation_angle) * wall_half_length
+        
+        controllable_wall_start = (controllable_center_x - wall_dx, controllable_center_y - wall_dy)
+        controllable_wall_end = (controllable_center_x + wall_dx, controllable_center_y + wall_dy)
+        walls.append(Wall(controllable_wall_start, controllable_wall_end, 'yellow'))
+    else:
+        # Original random walls mode
+        for i in range(NUM_WALLS):
+            start_x = random.randint(0, WINDOW_SIZE[0])
+            start_y = random.randint(0, WINDOW_SIZE[1])
+            end_x = random.randint(0, WINDOW_SIZE[0])
+            end_y = random.randint(0, WINDOW_SIZE[1])
+            walls.append(Wall((start_x, start_y), (end_x, end_y)))
 
 def draw():
     display.fill((0, 0, 0))
@@ -282,6 +319,12 @@ def draw():
         particle.draw()
 
     drawRays([ray for ray in rays], [wall for wall in walls])
+    
+    # Draw emitter position in demo mode
+    if DEMO_MODE:
+        pygame.draw.circle(display, (0, 255, 0), (int(emitter_x), int(emitter_y)), 8)
+        # Draw a small circle at the controllable wall center for visual reference
+        pygame.draw.circle(display, (255, 255, 0), (int(controllable_wall_x), int(controllable_wall_y)), 4)
 
     screen.blit(display, (0, 0))
 
@@ -289,16 +332,49 @@ def draw():
 
 generateWalls()
 while running:
-    mx, my = pygame.mouse.get_pos()
+    if DEMO_MODE:
+        # In demo mode, use fixed emitter position
+        mx, my = emitter_x, emitter_y
+    else:
+        # In normal mode, follow mouse
+        mx, my = pygame.mouse.get_pos()
+        
     for event in pygame.event.get():
         if event.type == QUIT:
             sys.exit()
             pygame.quit()
 
         if event.type == KEYDOWN:
+            # Toggle demo mode with 'D' key
+            if event.key == pygame.K_d:
+                DEMO_MODE = not DEMO_MODE
+                generateWalls()
             # Re-randomize walls on Space
-            if event.key == pygame.K_SPACE:
-               generateWalls()
+            elif event.key == pygame.K_SPACE:
+                generateWalls()
+        
+        if DEMO_MODE:
+            # Control the controllable wall position with mouse movement
+            if event.type == MOUSEMOTION:
+                mouse_x, mouse_y = pygame.mouse.get_pos()
+                controllable_wall_x = mouse_x
+                controllable_wall_y = mouse_y
+                generateWalls()  # Regenerate walls with new position
+            
+            # Control rotation with scroll wheel
+            if event.type == MOUSEWHEEL:
+                # Scroll up (event.y > 0) rotates counter-clockwise, scroll down rotates clockwise
+                controllable_wall_angle += event.y * 2  # 2 degrees per scroll step
+                generateWalls()
+            
+            # Control distance with arrow keys (for backward compatibility)
+            if event.type == KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    controllable_wall_angle -= 5  # 5 degrees per key press
+                    generateWalls()
+                elif event.key == pygame.K_RIGHT:
+                    controllable_wall_angle += 5  # 5 degrees per key press
+                    generateWalls()
 
     for ray in rays:
         ray.update(mx, my)
