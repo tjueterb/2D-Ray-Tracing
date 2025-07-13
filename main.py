@@ -501,10 +501,13 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
     
     # Handle color input - it might be reflection data from previous iteration
     reflection_source = None
+    cumulative_reflectance_so_far = 1.0  # Track cumulative reflectance through the path
     if isinstance(color, dict) and 'wall' in color:
         # This is reflection data from previous iteration
         reflection_source = color
         base_color = color['color']
+        # Get the cumulative reflectance from previous reflections
+        cumulative_reflectance_so_far = color.get('cumulative_reflectance', 1.0)
     else:
         # This is a simple color
         base_color = color
@@ -548,10 +551,12 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                         actual_viewing_dir = (actual_direction_x / actual_length, actual_direction_y / actual_length)
                         
                         # Calculate BSDF using the actual direction to this sample point
+                        # Use the cumulative reflectance if available, otherwise use 1.0
+                        cumulative_reflectance = reflection_source.get('cumulative_reflectance', 1.0)
                         phong_brightness = calculate_phong_brightness(
                             reflection_source['incident_dir'], 
                             reflection_source['wall_normal'], 
-                            1.0,  # Don't apply reflectance here - already applied when creating reflection
+                            cumulative_reflectance,  # Use actual cumulative reflectance for proper energy conservation
                             PHONG_EXPONENT, 
                             actual_viewing_dir
                         )
@@ -623,6 +628,9 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                                 reduced_intensity = int(base_intensity * wall.reflectance)
                                 reduced_color = (reduced_intensity, reduced_intensity, reduced_intensity)
                             
+                            # Calculate cumulative reflectance for this path
+                            new_cumulative_reflectance = cumulative_reflectance_so_far * wall.reflectance
+                            
                             # Store reflection data for recursive call (BSDF will be calculated for actual directions)
                             reflection_points.append({
                                 'emitter': (new_emitter_x, new_emitter_y),
@@ -630,7 +638,8 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                                 'original_point': (point_x, point_y),
                                 'wall': wall,
                                 'incident_dir': incident_dir,
-                                'wall_normal': wall_normal
+                                'wall_normal': wall_normal,
+                                'cumulative_reflectance': new_cumulative_reflectance  # Track cumulative reflectance for BSDF
                             })
     
     # Process reflections recursively
@@ -695,11 +704,12 @@ def calculate_phong_brightness(incident_dir, wall_normal, wall_reflectance, phon
     
     # Pure specular reflection - no diffuse component
     # The specular factor already accounts for how well the viewing direction aligns with perfect reflection
-    # This will naturally be 0 for non-aligned directions and approach 1 for perfect alignment
+    # The wall's reflectance is already < 1, so no additional energy loss is needed
+    
     brightness = wall_reflectance * specular_factor
     
-    # Strictly enforce energy conservation - brightness can never exceed the wall's reflectance
-    brightness = max(0.0, min(wall_reflectance * 0.95, brightness))  # Cap at 95% of reflectance to ensure dimming
+    # Cap at 100% of wall's reflectance - the BSDF can only redistribute energy, not create it
+    brightness = max(0.0, min(wall_reflectance, brightness))
     
     return brightness
 
