@@ -172,6 +172,10 @@ def calculate_screen_intersection(ray):
 
 def drawRays(rays, walls, color = 'white'):
     global lastClosestPoint
+    
+    # Store all ray segments to draw them in the correct order
+    ray_segments = []
+    
     for ray in rays:
         current_ray = ray
         current_color = color
@@ -198,8 +202,14 @@ def drawRays(rays, walls, color = 'white'):
                         closestWall = hitWall
 
             if closestPoint is not None:
-                # Draw the current ray segment
-                pygame.draw.line(display, current_color, (current_ray.x, current_ray.y), closestPoint)
+                # Store the ray segment for later drawing
+                ray_segments.append({
+                    'start': (current_ray.x, current_ray.y),
+                    'end': closestPoint,
+                    'color': current_color,
+                    'reflection_order': reflection_count
+                })
+                
                 if SOLID_RAYS:
                     pygame.draw.polygon(display, current_color, [(mx, my), closestPoint, lastClosestPoint])
                     lastClosestPoint = closestPoint
@@ -229,13 +239,23 @@ def drawRays(rays, walls, color = 'white'):
                     break  # No more reflections
             else:
                 # No collision found - extend ray to screen boundary
-                # Calculate where the ray intersects with screen edges
                 ray_end = calculate_screen_intersection(current_ray)
-                pygame.draw.line(display, current_color, (current_ray.x, current_ray.y), ray_end)
+                ray_segments.append({
+                    'start': (current_ray.x, current_ray.y),
+                    'end': ray_end,
+                    'color': current_color,
+                    'reflection_order': reflection_count
+                })
+                
                 if SOLID_RAYS:
                     pygame.draw.polygon(display, current_color, [(mx, my), ray_end, lastClosestPoint])
                     lastClosestPoint = ray_end
                 break  # No collision found
+    
+    # Draw ray segments in reverse order (highest reflection order first, original rays last)
+    ray_segments.sort(key=lambda segment: segment['reflection_order'], reverse=True)
+    for segment in ray_segments:
+        pygame.draw.line(display, segment['color'], segment['start'], segment['end'])
 
 def generateWalls():
     walls.clear()
