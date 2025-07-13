@@ -14,7 +14,7 @@ NUM_SAMPLES = 6 # Number of sample points per wall for three-point-form method
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 ENABLE_REFLECTIONS = True # Enable first-order reflections
 MAX_REFLECTIONS = 3 # Maximum number of reflections per ray
-PHONG_EXPONENT = 200 # Phong exponent for specular reflections (higher = more specular)
+PHONG_EXPONENT = 100 # Phong exponent for specular reflections (higher = more specular)
 DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
 #------------------
 
@@ -31,7 +31,7 @@ particles = []
 # Demo mode variables
 emitter_x = 100
 emitter_y = WINDOW_SIZE[1] - 100
-controllable_wall_angle = -45  # degrees
+controllable_wall_angle = 135  # degrees
 controllable_wall_x = 400  # X position of controllable wall
 controllable_wall_y = 400  # Y position of controllable wall
 
@@ -843,6 +843,11 @@ while running:
             elif event.key == pygame.K_e:
                 PHONG_EXPONENT = min(64, PHONG_EXPONENT + 2)  # Increase specularity
                 print(f"Phong exponent increased to: {PHONG_EXPONENT}")
+            # Reset controllable wall angle
+            elif event.key == pygame.K_r:
+                controllable_wall_angle = 135  # Reset to default angle
+                print(f"Wall angle reset to: {controllable_wall_angle} degrees")
+                generateWalls()
         
         # Wall controls work in both modes
         # Control the controllable wall position with mouse movement
