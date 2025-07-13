@@ -733,6 +733,13 @@ while running:
             # Toggle between demo mode and alternative mode with 'D' key
             elif event.key == pygame.K_d:
                 DEMO_MODE = not DEMO_MODE
+                if not DEMO_MODE:
+                    print("Switched to three-point-form")
+                    MAX_REFLECTIONS = 1
+                else:
+                    print("Switched to default path tracing.")
+                    MAX_REFLECTIONS = 3
+                
                 generateWalls()
             # Re-randomize walls on Space (only works in demo mode)
             elif event.key == pygame.K_SPACE and DEMO_MODE:
