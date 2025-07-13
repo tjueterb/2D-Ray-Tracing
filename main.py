@@ -123,8 +123,19 @@ class Wall:
     def draw(self):
         pygame.draw.line(display, self.color, self.start_pos, self.end_pos, 3)
 
-for i in range(0, 360, int(360/NUM_RAYS)):
-    rays.append(Ray(mx, my, math.radians(i)))
+for i in range(NUM_RAYS):
+    angle = (i * 360 / NUM_RAYS)  # Distribute rays evenly across 360 degrees
+    rays.append(Ray(mx, my, math.radians(angle)))
+
+def regenerate_rays():
+    """Regenerate the rays array when NUM_RAYS changes"""
+    global rays, mx, my
+    rays.clear()
+    print(f"Regenerating {NUM_RAYS} rays...")  # Debug output
+    for i in range(NUM_RAYS):
+        angle = (i * 360 / NUM_RAYS)  # Distribute rays evenly across 360 degrees
+        rays.append(Ray(mx, my, math.radians(angle)))
+    print(f"Generated {len(rays)} rays")  # Debug output
 
 def calculate_screen_intersection(ray):
     """Calculate where a ray intersects with the screen boundaries"""
@@ -352,13 +363,30 @@ while running:
             pygame.quit()
 
         if event.type == KEYDOWN:
+            # Control number of rays with Up/Down arrows (works in both modes)
+            if event.key == pygame.K_UP:
+                NUM_RAYS = min(360, NUM_RAYS + 10)  # Increase by 10, max 360
+                print(f"Rays increased to: {NUM_RAYS}")  # Debug output
+                regenerate_rays()
+            elif event.key == pygame.K_DOWN:
+                NUM_RAYS = max(10, NUM_RAYS - 10)  # Decrease by 10, min 10
+                print(f"Rays decreased to: {NUM_RAYS}")  # Debug output
+                regenerate_rays()
             # Toggle demo mode with 'D' key
-            if event.key == pygame.K_d:
+            elif event.key == pygame.K_d:
                 DEMO_MODE = not DEMO_MODE
                 generateWalls()
             # Re-randomize walls on Space
             elif event.key == pygame.K_SPACE:
                 generateWalls()
+            # Demo mode specific controls
+            elif DEMO_MODE:
+                if event.key == pygame.K_LEFT:
+                    controllable_wall_angle -= 5  # 5 degrees per key press
+                    generateWalls()
+                elif event.key == pygame.K_RIGHT:
+                    controllable_wall_angle += 5  # 5 degrees per key press
+                    generateWalls()
         
         if DEMO_MODE:
             # Control the controllable wall position with mouse movement
@@ -371,17 +399,8 @@ while running:
             # Control rotation with scroll wheel
             if event.type == MOUSEWHEEL:
                 # Scroll up (event.y > 0) rotates counter-clockwise, scroll down rotates clockwise
-                controllable_wall_angle += event.y * 0.1  # 0.5 degrees per scroll step
+                controllable_wall_angle += event.y * 0.1  # 0.1 degrees per scroll step
                 generateWalls()
-            
-            # Control distance with arrow keys (for backward compatibility)
-            if event.type == KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    controllable_wall_angle -= 5  # 5 degrees per key press
-                    generateWalls()
-                elif event.key == pygame.K_RIGHT:
-                    controllable_wall_angle += 5  # 5 degrees per key press
-                    generateWalls()
 
     for ray in rays:
         ray.update(mx, my)
