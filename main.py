@@ -75,7 +75,7 @@ class Ray:
         return None
 
 class Wall:
-    def __init__(self, start_pos, end_pos, color = 'white', reflectance=1):
+    def __init__(self, start_pos, end_pos, color = 'white', reflectance=0.7):
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.color = color
