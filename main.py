@@ -10,10 +10,10 @@ pygame.init()
 # -----Options-----
 WINDOW_SIZE = (1920, 1080) # Width x Height in pixels
 NUM_RAYS = 250 # Must be between 1 and 360
-NUM_SAMPLES = 50 # Number of sample points per wall for three-point-form method
+NUM_SAMPLES = 3 # Number of sample points per wall for three-point-form method
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 ENABLE_REFLECTIONS = True # Enable first-order reflections
-MAX_REFLECTIONS = 5 # Maximum number of reflections per ray
+MAX_REFLECTIONS = 1 # Maximum number of reflections per ray
 DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
 #------------------
 
@@ -453,7 +453,31 @@ def drawThreePointForm(emitter_pos, walls):
     """Draw rays using three-point-form method: sample points on walls and draw direct lines if not occluded"""
     if not walls:
         return
-        
+    
+    # Draw direct rays (first-order)
+    drawThreePointFormRecursive(emitter_pos, walls, 0, 'white')
+
+def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color):
+    """Recursively draw three-point-form rays with reflections"""
+    if not walls or reflection_depth > MAX_REFLECTIONS:
+        return
+    
+    # Calculate color intensity based on reflection depth
+    if isinstance(color, str):
+        if color == 'white':
+            base_intensity = 255
+        else:
+            base_intensity = 255  # Default for other color names
+        intensity = int(base_intensity * (0.7 ** reflection_depth))  # Dim with each reflection
+        current_color = (intensity, intensity, intensity)
+    else:
+        # Apply additional dimming for higher-order reflections
+        dimming_factor = 0.7 ** reflection_depth
+        current_color = tuple(max(0, int(c * dimming_factor)) for c in color)
+    
+    # Store reflection points for next iteration
+    reflection_points = []
+    
     for wall in walls:
         # Sample points on this wall
         sample_points = sample_points_on_wall(wall, NUM_SAMPLES)
@@ -462,10 +486,51 @@ def drawThreePointForm(emitter_pos, walls):
             # Check if direct line from emitter to this point is occluded
             if not is_point_occluded(emitter_pos, (point_x, point_y), walls, wall):
                 # Draw direct ray from emitter to visible point
-                pygame.draw.line(display, 'white', emitter_pos, (point_x, point_y), 1)
+                pygame.draw.line(display, current_color, emitter_pos, (point_x, point_y), 1)
                 
-                # Draw a small dot at the sample point for visualization
-                pygame.draw.circle(display, wall.color, (int(point_x), int(point_y)), 2)
+                # Draw a small dot at the sample point for visualization (only for first-order)
+                if reflection_depth == 0:
+                    pygame.draw.circle(display, wall.color, (int(point_x), int(point_y)), 2)
+                
+                # If we haven't reached max reflections and wall can reflect, prepare for next reflection
+                if reflection_depth < MAX_REFLECTIONS and wall.reflectance > 0:
+                    # Calculate incident ray direction
+                    incident_dx = point_x - emitter_pos[0]
+                    incident_dy = point_y - emitter_pos[1]
+                    incident_length = math.sqrt(incident_dx**2 + incident_dy**2)
+                    
+                    if incident_length > 0:
+                        incident_dir = (incident_dx / incident_length, incident_dy / incident_length)
+                        
+                        # Calculate reflected direction using wall's reflection method
+                        reflected_dir = wall.reflect_ray(incident_dir)
+                        
+                        # Calculate new emitter position (slightly offset from reflection point)
+                        offset = 0.1
+                        new_emitter_x = point_x + reflected_dir[0] * offset
+                        new_emitter_y = point_y + reflected_dir[1] * offset
+                        
+                        # Calculate color for reflected ray (apply wall reflectance)
+                        if isinstance(current_color, tuple):
+                            reflected_color = tuple(max(0, int(c * wall.reflectance)) for c in current_color)
+                        else:
+                            reflected_color = current_color
+                        
+                        # Store reflection data for recursive call
+                        reflection_points.append({
+                            'emitter': (new_emitter_x, new_emitter_y),
+                            'color': reflected_color,
+                            'original_point': (point_x, point_y)
+                        })
+    
+    # Process reflections recursively
+    for reflection_data in reflection_points:
+        drawThreePointFormRecursive(
+            reflection_data['emitter'], 
+            walls, 
+            reflection_depth + 1, 
+            reflection_data['color']
+        )
 
 def draw():
     display.fill((0, 0, 0))
@@ -503,15 +568,23 @@ while running:
             pygame.quit()
 
         if event.type == KEYDOWN:
-            # Control number of rays with Up/Down arrows (works in both modes)
+            # Control number of rays/samples with Up/Down arrows (works in both modes)
             if event.key == pygame.K_UP:
-                NUM_RAYS = min(360, NUM_RAYS + 10)  # Increase by 10, max 360
-                print(f"Rays increased to: {NUM_RAYS}")  # Debug output
-                regenerate_rays()
+                if DEMO_MODE:
+                    NUM_RAYS = min(360, NUM_RAYS + 10)  # Increase by 10, max 360
+                    print(f"Rays increased to: {NUM_RAYS}")  # Debug output
+                    regenerate_rays()
+                else:
+                    NUM_SAMPLES = min(100, NUM_SAMPLES + 5)  # Increase by 5, max 100
+                    print(f"Samples increased to: {NUM_SAMPLES}")  # Debug output
             elif event.key == pygame.K_DOWN:
-                NUM_RAYS = max(10, NUM_RAYS - 10)  # Decrease by 10, min 10
-                print(f"Rays decreased to: {NUM_RAYS}")  # Debug output
-                regenerate_rays()
+                if DEMO_MODE:
+                    NUM_RAYS = max(10, NUM_RAYS - 10)  # Decrease by 10, min 10
+                    print(f"Rays decreased to: {NUM_RAYS}")  # Debug output
+                    regenerate_rays()
+                else:
+                    NUM_SAMPLES = max(5, NUM_SAMPLES - 5)  # Decrease by 5, min 5
+                    print(f"Samples decreased to: {NUM_SAMPLES}")  # Debug output
             # Toggle between demo mode and alternative mode with 'D' key
             elif event.key == pygame.K_d:
                 DEMO_MODE = not DEMO_MODE
