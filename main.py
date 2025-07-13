@@ -546,18 +546,21 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                         phong_brightness = calculate_phong_brightness(
                             reflection_source['incident_dir'], 
                             reflection_source['wall_normal'], 
-                            reflection_source['wall'].reflectance, 
+                            1.0,  # Don't apply reflectance here - already applied when creating reflection
                             PHONG_EXPONENT, 
                             actual_viewing_dir
                         )
                         
-                        # Apply BSDF brightness to color
+                        # Apply BSDF brightness to color, but never exceed the input brightness
                         if isinstance(current_color, tuple):
-                            final_color = tuple(max(0, int(c * phong_brightness)) for c in current_color)
+                            # Calculate max possible brightness from current color
+                            current_brightness = sum(current_color) / len(current_color)
+                            # Apply BSDF but cap at current brightness
+                            final_color = tuple(max(0, min(int(c * phong_brightness), c)) for c in current_color)
                         else:
                             # Convert string color to RGB and apply brightness
                             base_intensity = 255
-                            intensity = int(base_intensity * phong_brightness)
+                            intensity = min(int(base_intensity * phong_brightness), base_intensity)
                             final_color = (intensity, intensity, intensity)
                 
                 # Store ray segment instead of drawing immediately
@@ -604,10 +607,20 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                         
                         # Only continue reflection if the reflected ray has a clear path
                         if not is_point_occluded((new_emitter_x, new_emitter_y), (test_end_x, test_end_y), walls, None):
+                            # Apply wall reflectance to reduce energy for next reflection
+                            if isinstance(current_color, tuple):
+                                # Apply reflectance to RGB color
+                                reduced_color = tuple(max(0, int(c * wall.reflectance)) for c in current_color)
+                            else:
+                                # Apply reflectance to intensity
+                                base_intensity = 255
+                                reduced_intensity = int(base_intensity * wall.reflectance)
+                                reduced_color = (reduced_intensity, reduced_intensity, reduced_intensity)
+                            
                             # Store reflection data for recursive call (BSDF will be calculated for actual directions)
                             reflection_points.append({
                                 'emitter': (new_emitter_x, new_emitter_y),
-                                'color': current_color,
+                                'color': reduced_color,  # Use energy-reduced color
                                 'original_point': (point_x, point_y),
                                 'wall': wall,
                                 'incident_dir': incident_dir,
