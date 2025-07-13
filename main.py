@@ -10,6 +10,7 @@ pygame.init()
 # -----Options-----
 WINDOW_SIZE = (1920, 1080) # Width x Height in pixels
 NUM_RAYS = 250 # Must be between 1 and 360
+NUM_SAMPLES = 50 # Number of sample points per wall for three-point-form method
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 ENABLE_REFLECTIONS = True # Enable first-order reflections
 MAX_REFLECTIONS = 5 # Maximum number of reflections per ray
@@ -333,8 +334,138 @@ def generateWalls():
         non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
         walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
     else:
-        # Alternative mode - blank for now (press 'D' to switch)
-        pass
+        # Alternative mode - Three-point-form ray tracing with same walls as demo mode
+        # Fixed wall (farther from emitter)
+        fixed_wall_center_x = WINDOW_SIZE[0] * 0.6
+        fixed_wall_center_y = WINDOW_SIZE[1] * 0.2
+        fixed_wall_length = 350
+        
+        # Calculate wall endpoints for 45-degree angle
+        angle_rad = math.radians(45)
+        half_length = fixed_wall_length / 2
+        dx = math.cos(angle_rad) * half_length
+        dy = math.sin(angle_rad) * half_length
+        
+        fixed_wall_start = (fixed_wall_center_x - dx, fixed_wall_center_y - dy)
+        fixed_wall_end = (fixed_wall_center_x + dx, fixed_wall_center_y + dy)
+        walls.append(Wall(fixed_wall_start, fixed_wall_end, 'red'))
+        
+        # Controllable wall (closer to emitter)
+        # Position directly controlled by mouse
+        controllable_center_x = controllable_wall_x
+        controllable_center_y = controllable_wall_y
+        
+        # Wall orientation controlled by scroll wheel
+        wall_orientation_angle = math.radians(controllable_wall_angle)
+        wall_length = 250
+        wall_half_length = wall_length / 2
+        wall_dx = math.cos(wall_orientation_angle) * wall_half_length
+        wall_dy = math.sin(wall_orientation_angle) * wall_half_length
+        
+        controllable_wall_start = (controllable_center_x - wall_dx, controllable_center_y - wall_dy)
+        controllable_wall_end = (controllable_center_x + wall_dx, controllable_center_y + wall_dy)
+        walls.append(Wall(controllable_wall_start, controllable_wall_end, 'yellow'))
+        
+        # Second static wall (below the first one, also at 45 degrees)
+        second_wall_center_x = WINDOW_SIZE[0] * 0.6
+        second_wall_center_y = WINDOW_SIZE[1] * 0.8  # Lower than the first wall
+        second_wall_length = 350
+        
+        # Calculate wall endpoints for 45-degree angle (same as first wall)
+        second_angle_rad = math.radians(45)
+        second_half_length = second_wall_length / 2
+        second_dx = math.cos(second_angle_rad) * second_half_length
+        second_dy = math.sin(second_angle_rad) * second_half_length
+        
+        second_wall_start = (second_wall_center_x - second_dx, second_wall_center_y - second_dy)
+        second_wall_end = (second_wall_center_x + second_dx, second_wall_center_y + second_dy)
+        walls.append(Wall(second_wall_start, second_wall_end, 'orange'))
+        
+        # Non-reflecting wall to the right of the emitter
+        non_reflecting_wall_x = emitter_x + 150  # 150 pixels to the right
+        non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
+        non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
+        walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
+
+def sample_points_on_wall(wall, num_samples):
+    """Sample equally spaced points along a wall in local coordinates"""
+    points = []
+    for i in range(num_samples):
+        # Parameter t goes from 0 to 1 along the wall
+        t = i / (num_samples - 1) if num_samples > 1 else 0.5
+        
+        # Interpolate between start and end points
+        x = wall.start_pos[0] + t * (wall.end_pos[0] - wall.start_pos[0])
+        y = wall.start_pos[1] + t * (wall.end_pos[1] - wall.start_pos[1])
+        
+        points.append((x, y, t))  # Include parameter t for local coordinate
+    return points
+
+def is_point_occluded(emitter_pos, target_point, walls, target_wall):
+    """Check if a direct line from emitter to target point is occluded by other walls"""
+    emitter_x, emitter_y = emitter_pos
+    target_x, target_y = target_point
+    
+    # Create a temporary ray from emitter to target point
+    direction_x = target_x - emitter_x
+    direction_y = target_y - emitter_y
+    distance_to_target = math.sqrt(direction_x**2 + direction_y**2)
+    
+    if distance_to_target == 0:
+        return True  # Emitter is at target point
+    
+    # Normalize direction
+    direction_x /= distance_to_target
+    direction_y /= distance_to_target
+    
+    # Check intersection with all walls except the target wall
+    for wall in walls:
+        if wall == target_wall:
+            continue
+            
+        # Line-line intersection between emitter->target and wall
+        x1, y1 = emitter_x, emitter_y
+        x2, y2 = target_x, target_y
+        x3, y3 = wall.start_pos
+        x4, y4 = wall.end_pos
+        
+        denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+        if abs(denominator) < 1e-10:  # Lines are parallel
+            continue
+            
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denominator
+        u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denominator
+        
+        # Check if intersection occurs on both line segments
+        if 0 < t < 1 and 0 <= u <= 1:
+            # Calculate intersection point
+            intersect_x = x1 + t * (x2 - x1)
+            intersect_y = y1 + t * (y2 - y1)
+            
+            # Check if intersection is between emitter and target (not beyond target)
+            dist_to_intersection = math.sqrt((intersect_x - emitter_x)**2 + (intersect_y - emitter_y)**2)
+            if dist_to_intersection < distance_to_target - 1e-6:  # Small epsilon for floating point comparison
+                return True  # Occluded
+                
+    return False  # Not occluded
+
+def drawThreePointForm(emitter_pos, walls):
+    """Draw rays using three-point-form method: sample points on walls and draw direct lines if not occluded"""
+    if not walls:
+        return
+        
+    for wall in walls:
+        # Sample points on this wall
+        sample_points = sample_points_on_wall(wall, NUM_SAMPLES)
+        
+        for point_x, point_y, local_t in sample_points:
+            # Check if direct line from emitter to this point is occluded
+            if not is_point_occluded(emitter_pos, (point_x, point_y), walls, wall):
+                # Draw direct ray from emitter to visible point
+                pygame.draw.line(display, 'white', emitter_pos, (point_x, point_y), 1)
+                
+                # Draw a small dot at the sample point for visualization
+                pygame.draw.circle(display, wall.color, (int(point_x), int(point_y)), 2)
 
 def draw():
     display.fill((0, 0, 0))
@@ -345,13 +476,17 @@ def draw():
     for particle in particles:
         particle.draw()
 
-    drawRays([ray for ray in rays], [wall for wall in walls])
-    
-    # Draw emitter position in demo mode
     if DEMO_MODE:
-        pygame.draw.circle(display, (0, 255, 0), (int(emitter_x), int(emitter_y)), 8)
-        # Draw a small circle at the controllable wall center for visual reference
-        pygame.draw.circle(display, (255, 255, 0), (int(controllable_wall_x), int(controllable_wall_y)), 4)
+        # Use traditional ray tracing method
+        drawRays([ray for ray in rays], [wall for wall in walls])
+    else:
+        # Use three-point-form method with same emitter position as demo mode
+        drawThreePointForm((emitter_x, emitter_y), walls)
+    
+    # Draw emitter position and controllable wall indicator in both modes
+    pygame.draw.circle(display, (0, 255, 0), (int(emitter_x), int(emitter_y)), 8)
+    # Draw a small circle at the controllable wall center for visual reference
+    pygame.draw.circle(display, (255, 255, 0), (int(controllable_wall_x), int(controllable_wall_y)), 4)
 
     screen.blit(display, (0, 0))
 
@@ -359,12 +494,8 @@ def draw():
 
 generateWalls()
 while running:
-    if DEMO_MODE:
-        # In demo mode, use fixed emitter position
-        mx, my = emitter_x, emitter_y
-    else:
-        # In alternative mode, follow mouse
-        mx, my = pygame.mouse.get_pos()
+    # Use fixed emitter position in both modes
+    mx, my = emitter_x, emitter_y
         
     for event in pygame.event.get():
         if event.type == QUIT:
@@ -388,28 +519,27 @@ while running:
             # Re-randomize walls on Space (only works in demo mode)
             elif event.key == pygame.K_SPACE and DEMO_MODE:
                 generateWalls()
-            # Demo mode specific controls
-            elif DEMO_MODE:
-                if event.key == pygame.K_LEFT:
-                    controllable_wall_angle -= 5  # 5 degrees per key press
-                    generateWalls()
-                elif event.key == pygame.K_RIGHT:
-                    controllable_wall_angle += 5  # 5 degrees per key press
-                    generateWalls()
-        
-        if DEMO_MODE:
-            # Control the controllable wall position with mouse movement
-            if event.type == MOUSEMOTION:
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                controllable_wall_x = mouse_x
-                controllable_wall_y = mouse_y
-                generateWalls()  # Regenerate walls with new position
-            
-            # Control rotation with scroll wheel
-            if event.type == MOUSEWHEEL:
-                # Scroll up (event.y > 0) rotates counter-clockwise, scroll down rotates clockwise
-                controllable_wall_angle += event.y * 0.1  # 0.1 degrees per scroll step
+            # Wall controls (work in both modes)
+            elif event.key == pygame.K_LEFT:
+                controllable_wall_angle -= 5  # 5 degrees per key press
                 generateWalls()
+            elif event.key == pygame.K_RIGHT:
+                controllable_wall_angle += 5  # 5 degrees per key press
+                generateWalls()
+        
+        # Wall controls work in both modes
+        # Control the controllable wall position with mouse movement
+        if event.type == MOUSEMOTION:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            controllable_wall_x = mouse_x
+            controllable_wall_y = mouse_y
+            generateWalls()  # Regenerate walls with new position
+        
+        # Control rotation with scroll wheel
+        if event.type == MOUSEWHEEL:
+            # Scroll up (event.y > 0) rotates counter-clockwise, scroll down rotates clockwise
+            controllable_wall_angle += event.y * 0.1  # 0.1 degrees per scroll step
+            generateWalls()
 
     for ray in rays:
         ray.update(mx, my)
