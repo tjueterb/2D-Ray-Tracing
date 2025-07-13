@@ -75,7 +75,7 @@ class Ray:
         return None
 
 class Wall:
-    def __init__(self, start_pos, end_pos, color = 'white', reflectance=0.6):
+    def __init__(self, start_pos, end_pos, color = 'white', reflectance=0.7):
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.color = color
@@ -340,21 +340,21 @@ def generateWalls():
 
     
     # Non-reflecting wall to the right of the emitter
-    non_reflecting_wall_x = WINDOW_SIZE[0]*0.2
+    non_reflecting_wall_x = WINDOW_SIZE[0]*0.1
     non_reflecting_wall_start = (non_reflecting_wall_x, WINDOW_SIZE[1])
     non_reflecting_wall_end = (non_reflecting_wall_x, WINDOW_SIZE[1]*0.4)
     walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
     
-    # Non-reflecting wall to the right of the emitter
+    # Non-reflecting wall to the left of the second wall
     non_reflecting_wall_x = WINDOW_SIZE[0]*0.5
     non_reflecting_wall_start = (second_wall_center_x - second_dx, second_wall_center_y - second_dy)
     non_reflecting_wall_end =  (second_wall_center_x - second_dx, WINDOW_SIZE[1])
     walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
     
-    if not DEMO_MODE:
-        right_wall_start = (WINDOW_SIZE[0]*0.99, second_wall_center_y - second_dy)
-        right_wall_end = (WINDOW_SIZE[0]*0.99, second_wall_center_y + second_dy)
-        walls.append(Wall(right_wall_start, right_wall_end, 'orange'))
+    # if not DEMO_MODE:
+    right_wall_start = (WINDOW_SIZE[0]*0.99, second_wall_center_y - second_dy)
+    right_wall_end = (WINDOW_SIZE[0]*0.99, second_wall_center_y + second_dy)
+    walls.append(Wall(right_wall_start, right_wall_end, 'orange'))
     
 
 def sample_points_on_wall(wall, num_samples):
@@ -728,17 +728,22 @@ while running:
                     print(f"Rays decreased to: {NUM_RAYS}")  # Debug output
                     regenerate_rays()
                 else:
-                    NUM_SAMPLES = max(1, NUM_SAMPLES - 1)  # Decrease by 5, min 5
+                    NUM_SAMPLES = max(1, NUM_SAMPLES - 1)  # Decrease by 5, min 1
                     print(f"Samples decreased to: {NUM_SAMPLES}")  # Debug output
+            elif event.key == pygame.K_t and DEMO_MODE:
+                # Toggle between 250 and 20 rays in demo mode
+                NUM_RAYS = 20 if NUM_RAYS == 250 else 250
+                print(f"Toggled rays to: {NUM_RAYS}")
+                regenerate_rays()
             # Toggle between demo mode and alternative mode with 'D' key
             elif event.key == pygame.K_d:
                 DEMO_MODE = not DEMO_MODE
                 if not DEMO_MODE:
                     print("Switched to three-point-form")
-                    MAX_REFLECTIONS = 1
+                    # MAX_REFLECTIONS = 1
                 else:
                     print("Switched to default path tracing.")
-                    MAX_REFLECTIONS = 3
+                    # MAX_REFLECTIONS = 3
                 
                 generateWalls()
             # Re-randomize walls on Space (only works in demo mode)
