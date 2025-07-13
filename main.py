@@ -14,7 +14,7 @@ NUM_SAMPLES = 6 # Number of sample points per wall for three-point-form method
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 ENABLE_REFLECTIONS = True # Enable first-order reflections
 MAX_REFLECTIONS = 3 # Maximum number of reflections per ray
-PHONG_EXPONENT = 100 # Phong exponent for specular reflections (higher = more specular)
+PHONG_EXPONENT = 200 # Phong exponent for specular reflections (higher = more specular)
 DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
 #------------------
 
