@@ -13,7 +13,7 @@ NUM_RAYS = 250 # Must be between 1 and 360
 NUM_SAMPLES = 5 # Number of sample points per wall for three-point-form method
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 ENABLE_REFLECTIONS = True # Enable first-order reflections
-MAX_REFLECTIONS = 1 # Maximum number of reflections per ray
+MAX_REFLECTIONS = 2 # Maximum number of reflections per ray
 PHONG_EXPONENT = 1000 # Phong exponent for specular reflections (higher = more specular)
 DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
 #------------------
@@ -375,7 +375,7 @@ def generateWalls():
         second_wall_length = 350
         
         # Calculate wall endpoints for 45-degree angle (same as first wall)
-        second_angle_rad = math.radians(45)
+        second_angle_rad = math.radians(0)
         second_half_length = second_wall_length / 2
         second_dx = math.cos(second_angle_rad) * second_half_length
         second_dy = math.sin(second_angle_rad) * second_half_length
@@ -489,13 +489,14 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
     # Store reflection points for next iteration
     reflection_points = []
     
-    for wall in walls[:2]: #TODO: remove this later, but keep for now to limit to first two walls
+    for wall in walls:
         # Skip walls that don't reflect light (reflectance = 0)
         if wall.reflectance <= 0:
             continue
             
-        # Sample points on this wall
-        sample_points = sample_points_on_wall(wall, NUM_SAMPLES)
+        # Sample points on this wall (fewer samples for higher reflection depths)
+        samples_for_depth = max(1, NUM_SAMPLES - reflection_depth)
+        sample_points = sample_points_on_wall(wall, samples_for_depth)
         
         for point_x, point_y, local_t in sample_points:
             # Check if direct line from emitter to this point is occluded
@@ -600,12 +601,28 @@ def calculate_phong_brightness(incident_dir, wall_normal, wall_reflectance, phon
     perfect_reflection_x = incident_dir[0] - 2 * dot_product * wall_normal[0]
     perfect_reflection_y = incident_dir[1] - 2 * dot_product * wall_normal[1]
     
-    # Use incident angle for BSDF calculation (this will show variation with ray angle)
+    # Use incident angle for basic calculation
     incident_factor = abs(dot_product)  # cos(incident_angle)
     
-    # Apply Phong specular based on incident angle 
-    # Rays that hit more perpendicularly will reflect more strongly
-    specular_factor = incident_factor ** (phong_exponent / 16.0)
+    if viewing_dir is not None:
+        # If we have a viewing direction, use proper Phong BSDF with perfect reflection
+        # Normalize viewing direction (just in case)
+        viewing_length = math.sqrt(viewing_dir[0]**2 + viewing_dir[1]**2)
+        if viewing_length > 0:
+            viewing_dir = (viewing_dir[0] / viewing_length, viewing_dir[1] / viewing_length)
+        
+        # Calculate dot product between viewing direction and perfect reflection
+        # This measures how close the actual outgoing direction is to perfect specular reflection
+        specular_dot = (viewing_dir[0] * perfect_reflection_x + 
+                       viewing_dir[1] * perfect_reflection_y)
+        specular_dot = max(0, min(1, specular_dot))
+        
+        # Phong specular term: cos^n(angle between viewing direction and perfect reflection)
+        specular_factor = specular_dot ** (phong_exponent)
+    else:
+        # Fallback: use incident angle-based calculation
+        # Rays that hit more perpendicularly will reflect more strongly
+        specular_factor = incident_factor ** (phong_exponent)
     
     # Lambert diffuse term for base lighting
     diffuse_factor = incident_factor
