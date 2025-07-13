@@ -681,7 +681,7 @@ while running:
                     print(f"Rays increased to: {NUM_RAYS}")  # Debug output
                     regenerate_rays()
                 else:
-                    NUM_SAMPLES = min(100, NUM_SAMPLES + 5)  # Increase by 5, max 100
+                    NUM_SAMPLES = min(100, NUM_SAMPLES + 1)  # Increase by 5, max 100
                     print(f"Samples increased to: {NUM_SAMPLES}")  # Debug output
             elif event.key == pygame.K_DOWN:
                 if DEMO_MODE:
@@ -689,7 +689,7 @@ while running:
                     print(f"Rays decreased to: {NUM_RAYS}")  # Debug output
                     regenerate_rays()
                 else:
-                    NUM_SAMPLES = max(5, NUM_SAMPLES - 5)  # Decrease by 5, min 5
+                    NUM_SAMPLES = max(5, NUM_SAMPLES - 1)  # Decrease by 5, min 5
                     print(f"Samples decreased to: {NUM_SAMPLES}")  # Debug output
             # Toggle between demo mode and alternative mode with 'D' key
             elif event.key == pygame.K_d:
@@ -700,9 +700,16 @@ while running:
                 generateWalls()
             # Wall controls (work in both modes)
             elif event.key == pygame.K_LEFT:
+                MAX_REFLECTIONS = max(0, MAX_REFLECTIONS - 1)  # Decrease reflections, min 0
+                print(f"Max reflections decreased to: {MAX_REFLECTIONS}")
+            elif event.key == pygame.K_RIGHT:
+                MAX_REFLECTIONS = min(10, MAX_REFLECTIONS + 1)  # Increase reflections, max 10
+                print(f"Max reflections increased to: {MAX_REFLECTIONS}")
+            # Controllable wall rotation controls
+            elif event.key == pygame.K_a:
                 controllable_wall_angle -= 5  # 5 degrees per key press
                 generateWalls()
-            elif event.key == pygame.K_RIGHT:
+            elif event.key == pygame.K_d:
                 controllable_wall_angle += 5  # 5 degrees per key press
                 generateWalls()
             # Phong exponent controls (work in both modes)
