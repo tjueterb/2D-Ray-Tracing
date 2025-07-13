@@ -75,7 +75,7 @@ class Ray:
         return None
 
 class Wall:
-    def __init__(self, start_pos, end_pos, color = 'white', reflectance=0.7):
+    def __init__(self, start_pos, end_pos, color = 'white', reflectance=0.6):
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.color = color
@@ -384,7 +384,7 @@ def generateWalls():
         second_wall_length = 350
         
         # Calculate wall endpoints for 45-degree angle (same as first wall)
-        second_angle_rad = math.radians(0)
+        second_angle_rad = math.radians(45)
         second_half_length = second_wall_length / 2
         second_dx = math.cos(second_angle_rad) * second_half_length
         second_dy = math.sin(second_angle_rad) * second_half_length
@@ -395,6 +395,11 @@ def generateWalls():
         
         # Non-reflecting wall to the right of the emitter
         non_reflecting_wall_x = emitter_x + 150  # 150 pixels to the right
+        non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
+        non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
+        walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
+        # Non-reflecting wall to the right of the emitter
+        non_reflecting_wall_x = emitter_x + 550  # 150 pixels to the right
         non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
         non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
         walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
@@ -553,14 +558,15 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                         
                         # Apply BSDF brightness to color, but never exceed the input brightness
                         if isinstance(current_color, tuple):
-                            # Calculate max possible brightness from current color
-                            current_brightness = sum(current_color) / len(current_color)
-                            # Apply BSDF but cap at current brightness
-                            final_color = tuple(max(0, min(int(c * phong_brightness), c)) for c in current_color)
+                            # Apply BSDF but ensure each component is strictly less than input
+                            # Use a safety factor to ensure reflections are always dimmer
+                            safety_factor = 0.95  # Ensure 5% energy loss minimum
+                            final_color = tuple(max(0, min(int(c * phong_brightness * safety_factor), int(c * safety_factor))) for c in current_color)
                         else:
                             # Convert string color to RGB and apply brightness
                             base_intensity = 255
-                            intensity = min(int(base_intensity * phong_brightness), base_intensity)
+                            safety_factor = 0.95
+                            intensity = min(int(base_intensity * phong_brightness * safety_factor), int(base_intensity * safety_factor))
                             final_color = (intensity, intensity, intensity)
                 
                 # Store ray segment instead of drawing immediately
@@ -687,17 +693,13 @@ def calculate_phong_brightness(incident_dir, wall_normal, wall_reflectance, phon
         # Rays that hit more perpendicularly will reflect more strongly
         specular_factor = incident_factor ** (phong_exponent)
     
-    # Lambert diffuse term for base lighting
-    diffuse_factor = incident_factor
+    # Pure specular reflection - no diffuse component
+    # The specular factor already accounts for how well the viewing direction aligns with perfect reflection
+    # This will naturally be 0 for non-aligned directions and approach 1 for perfect alignment
+    brightness = wall_reflectance * specular_factor
     
-    # Combine diffuse and specular components - make specular more dominant
-    diffuse_weight = 0.1
-    specular_weight = 0.9
-    
-    brightness = wall_reflectance * (diffuse_weight * diffuse_factor + specular_weight * specular_factor)
-    
-    # Reduce minimum brightness to see more dramatic effects
-    brightness = max(0.01, min(1.0, brightness))
+    # Strictly enforce energy conservation - brightness can never exceed the wall's reflectance
+    brightness = max(0.0, min(wall_reflectance * 0.95, brightness))  # Cap at 95% of reflectance to ensure dimming
     
     return brightness
 
