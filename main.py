@@ -14,7 +14,7 @@ NUM_SAMPLES = 5 # Number of sample points per wall for three-point-form method
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 ENABLE_REFLECTIONS = True # Enable first-order reflections
 MAX_REFLECTIONS = 1 # Maximum number of reflections per ray
-PHONG_EXPONENT = 86 # Phong exponent for specular reflections (higher = more specular)
+PHONG_EXPONENT = 1000 # Phong exponent for specular reflections (higher = more specular)
 DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
 #------------------
 
@@ -489,7 +489,7 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
     # Store reflection points for next iteration
     reflection_points = []
     
-    for wall in walls:
+    for wall in walls[:2]: #TODO: remove this later, but keep for now to limit to first two walls
         # Skip walls that don't reflect light (reflectance = 0)
         if wall.reflectance <= 0:
             continue
@@ -533,7 +533,7 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                         
                         # Calculate brightness using Phong BSDF (now based on incident angle)
                         phong_brightness = calculate_phong_brightness(
-                            incident_dir, wall_normal, wall.reflectance, PHONG_EXPONENT
+                            incident_dir, wall_normal, wall.reflectance, PHONG_EXPONENT, reflected_dir
                         )
                         
                         # Calculate new emitter position (slightly offset from reflection point)
@@ -575,7 +575,7 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
             ray_segments
         )
 
-def calculate_phong_brightness(incident_dir, wall_normal, wall_reflectance, phong_exponent=16, viewing_dir=None):
+def calculate_phong_brightness(incident_dir, wall_normal, wall_reflectance, phong_exponent=48, viewing_dir=None):
     """
     Calculate brightness using Phong BSDF model
     
