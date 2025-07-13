@@ -11,10 +11,9 @@ pygame.init()
 WINDOW_SIZE = (1920, 1080) # Width x Height in pixels
 NUM_RAYS = 250 # Must be between 1 and 360
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
-NUM_WALLS = 5 # The amount of randomly generated walls
 ENABLE_REFLECTIONS = True # Enable first-order reflections
 MAX_REFLECTIONS = 5 # Maximum number of reflections per ray
-DEMO_MODE = True # Enable demo mode with controllable walls
+DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
 #------------------
 
 screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -281,7 +280,7 @@ def generateWalls():
     walls.clear()
 
     if DEMO_MODE:
-        # Demo mode: Two walls at 45 degrees
+        # Demo mode: Multiple walls with controllable elements
         # Fixed wall (farther from emitter)
         fixed_wall_center_x = WINDOW_SIZE[0] * 0.6
         fixed_wall_center_y = WINDOW_SIZE[1] * 0.2
@@ -334,13 +333,8 @@ def generateWalls():
         non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
         walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
     else:
-        # Original random walls mode
-        for i in range(NUM_WALLS):
-            start_x = random.randint(0, WINDOW_SIZE[0])
-            start_y = random.randint(0, WINDOW_SIZE[1])
-            end_x = random.randint(0, WINDOW_SIZE[0])
-            end_y = random.randint(0, WINDOW_SIZE[1])
-            walls.append(Wall((start_x, start_y), (end_x, end_y)))
+        # Alternative mode - blank for now (press 'D' to switch)
+        pass
 
 def draw():
     display.fill((0, 0, 0))
@@ -369,7 +363,7 @@ while running:
         # In demo mode, use fixed emitter position
         mx, my = emitter_x, emitter_y
     else:
-        # In normal mode, follow mouse
+        # In alternative mode, follow mouse
         mx, my = pygame.mouse.get_pos()
         
     for event in pygame.event.get():
@@ -387,12 +381,12 @@ while running:
                 NUM_RAYS = max(10, NUM_RAYS - 10)  # Decrease by 10, min 10
                 print(f"Rays decreased to: {NUM_RAYS}")  # Debug output
                 regenerate_rays()
-            # Toggle demo mode with 'D' key
+            # Toggle between demo mode and alternative mode with 'D' key
             elif event.key == pygame.K_d:
                 DEMO_MODE = not DEMO_MODE
                 generateWalls()
-            # Re-randomize walls on Space
-            elif event.key == pygame.K_SPACE:
+            # Re-randomize walls on Space (only works in demo mode)
+            elif event.key == pygame.K_SPACE and DEMO_MODE:
                 generateWalls()
             # Demo mode specific controls
             elif DEMO_MODE:
