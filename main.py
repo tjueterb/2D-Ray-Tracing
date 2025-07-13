@@ -462,13 +462,10 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
     
     # Handle color input - it might be reflection data from previous iteration
     reflection_source = None
-    cumulative_reflectance_so_far = 1.0  # Track cumulative reflectance through the path
     if isinstance(color, dict) and 'wall' in color:
         # This is reflection data from previous iteration
         reflection_source = color
         base_color = color['color']
-        # Get the cumulative reflectance from previous reflections
-        cumulative_reflectance_so_far = color.get('cumulative_reflectance', 1.0)
     else:
         # This is a simple color
         base_color = color
@@ -511,29 +508,29 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                     if actual_length > 0:
                         actual_viewing_dir = (actual_direction_x / actual_length, actual_direction_y / actual_length)
                         
-                        # Calculate BSDF using the actual direction to this sample point
-                        # Use the cumulative reflectance if available, otherwise use 1.0
-                        cumulative_reflectance = reflection_source.get('cumulative_reflectance', 1.0)
+                        # Calculate BSDF using the wall reflectance (not cumulative reflectance)
+                        # The current_color already contains the cumulative energy reduction
+                        reflecting_wall = reflection_source['wall']
                         phong_brightness = calculate_phong_brightness(
                             reflection_source['incident_dir'], 
                             reflection_source['wall_normal'], 
-                            cumulative_reflectance,  # Use actual cumulative reflectance for proper energy conservation
+                            reflecting_wall.reflectance,  # Use the actual wall's reflectance for BSDF
                             PHONG_EXPONENT, 
                             actual_viewing_dir
                         )
                         
-                        # Apply BSDF brightness to color, but never exceed the input brightness
+                        # Apply BSDF brightness to color - this naturally includes energy loss
+                        # The BSDF caps at wall reflectance, ensuring energy conservation
                         if isinstance(current_color, tuple):
-                            # Apply BSDF but ensure each component is strictly less than input
-                            # Use a safety factor to ensure reflections are always dimmer
-                            safety_factor = 0.95  # Ensure 5% energy loss minimum
-                            final_color = tuple(max(0, min(int(c * phong_brightness * safety_factor), int(c * safety_factor))) for c in current_color)
+                            final_color = tuple(max(0, int(c * phong_brightness)) for c in current_color)
                         else:
                             # Convert string color to RGB and apply brightness
                             base_intensity = 255
-                            safety_factor = 0.95
-                            intensity = min(int(base_intensity * phong_brightness * safety_factor), int(base_intensity * safety_factor))
+                            intensity = int(base_intensity * phong_brightness)
                             final_color = (intensity, intensity, intensity)
+                else:
+                    # For first-order rays (direct from emitter), use full color
+                    final_color = current_color
                 
                 # Store ray segment instead of drawing immediately
                 segment = {
@@ -579,28 +576,24 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                         
                         # Only continue reflection if the reflected ray has a clear path
                         if not is_point_occluded((new_emitter_x, new_emitter_y), (test_end_x, test_end_y), walls, None):
-                            # Apply wall reflectance to reduce energy for next reflection
-                            if isinstance(current_color, tuple):
-                                # Apply reflectance to RGB color
-                                reduced_color = tuple(max(0, int(c * wall.reflectance)) for c in current_color)
+                            # For energy conservation, use the actual reflected energy (final_color) 
+                            # rather than the incoming energy (current_color)
+                            # This ensures that next reflection gets energy based on what was actually reflected
+                            if isinstance(final_color, tuple):
+                                # Use the actual reflected energy (final_color) for next reflection
+                                reduced_color = final_color
                             else:
-                                # Apply reflectance to intensity
-                                base_intensity = 255
-                                reduced_intensity = int(base_intensity * wall.reflectance)
-                                reduced_color = (reduced_intensity, reduced_intensity, reduced_intensity)
+                                # Convert to tuple if needed
+                                reduced_color = (final_color, final_color, final_color) if isinstance(final_color, int) else final_color
                             
-                            # Calculate cumulative reflectance for this path
-                            new_cumulative_reflectance = cumulative_reflectance_so_far * wall.reflectance
-                            
-                            # Store reflection data for recursive call (BSDF will be calculated for actual directions)
+                            # Store reflection data for recursive call
                             reflection_points.append({
                                 'emitter': (new_emitter_x, new_emitter_y),
-                                'color': reduced_color,  # Use energy-reduced color
+                                'color': reduced_color,  # Use actual reflected energy for next reflection level
                                 'original_point': (point_x, point_y),
                                 'wall': wall,
                                 'incident_dir': incident_dir,
-                                'wall_normal': wall_normal,
-                                'cumulative_reflectance': new_cumulative_reflectance  # Track cumulative reflectance for BSDF
+                                'wall_normal': wall_normal
                             })
     
     # Process reflections recursively
