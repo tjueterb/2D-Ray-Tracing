@@ -30,7 +30,7 @@ particles = []
 # Demo mode variables
 emitter_x = 100
 emitter_y = WINDOW_SIZE[1] - 100
-controllable_wall_angle = 45  # degrees
+controllable_wall_angle = -45  # degrees
 controllable_wall_x = 400  # X position of controllable wall
 controllable_wall_y = 400  # Y position of controllable wall
 
