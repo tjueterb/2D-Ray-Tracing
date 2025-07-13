@@ -476,15 +476,25 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
     if not walls or reflection_depth > MAX_REFLECTIONS:
         return
     
+    # Handle color input - it might be reflection data from previous iteration
+    reflection_source = None
+    if isinstance(color, dict) and 'wall' in color:
+        # This is reflection data from previous iteration
+        reflection_source = color
+        base_color = color['color']
+    else:
+        # This is a simple color
+        base_color = color
+    
     # Use the input color directly (no global dimming factor)
-    if isinstance(color, str):
-        if color == 'white':
+    if isinstance(base_color, str):
+        if base_color == 'white':
             base_intensity = 255
         else:
             base_intensity = 255  # Default for other color names
         current_color = (base_intensity, base_intensity, base_intensity)
     else:
-        current_color = color
+        current_color = base_color
     
     # Store reflection points for next iteration
     reflection_points = []
@@ -501,11 +511,42 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
         for point_x, point_y, local_t in sample_points:
             # Check if direct line from emitter to this point is occluded
             if not is_point_occluded(emitter_pos, (point_x, point_y), walls, wall):
+                # Calculate final color for this ray segment
+                final_color = current_color
+                
+                # If this is a reflection from a previous surface, apply BSDF based on actual direction
+                if reflection_source is not None:
+                    # Calculate actual direction from reflection point to this sample point
+                    actual_direction_x = point_x - reflection_source['original_point'][0]
+                    actual_direction_y = point_y - reflection_source['original_point'][1]
+                    actual_length = math.sqrt(actual_direction_x**2 + actual_direction_y**2)
+                    
+                    if actual_length > 0:
+                        actual_viewing_dir = (actual_direction_x / actual_length, actual_direction_y / actual_length)
+                        
+                        # Calculate BSDF using the actual direction to this sample point
+                        phong_brightness = calculate_phong_brightness(
+                            reflection_source['incident_dir'], 
+                            reflection_source['wall_normal'], 
+                            reflection_source['wall'].reflectance, 
+                            PHONG_EXPONENT, 
+                            actual_viewing_dir
+                        )
+                        
+                        # Apply BSDF brightness to color
+                        if isinstance(current_color, tuple):
+                            final_color = tuple(max(0, int(c * phong_brightness)) for c in current_color)
+                        else:
+                            # Convert string color to RGB and apply brightness
+                            base_intensity = 255
+                            intensity = int(base_intensity * phong_brightness)
+                            final_color = (intensity, intensity, intensity)
+                
                 # Store ray segment instead of drawing immediately
                 segment = {
                     'start': emitter_pos,
                     'end': (point_x, point_y),
-                    'color': current_color,
+                    'color': final_color,
                     'reflection_order': reflection_depth
                 }
                 
@@ -529,13 +570,8 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                         # Calculate reflected direction using wall's reflection method
                         reflected_dir = wall.reflect_ray(incident_dir)
                         
-                        # Get wall normal for Phong calculation
+                        # Get wall normal for later BSDF calculation
                         wall_normal = wall.get_normal()
-                        
-                        # Calculate brightness using Phong BSDF (now based on incident angle)
-                        phong_brightness = calculate_phong_brightness(
-                            incident_dir, wall_normal, wall.reflectance, PHONG_EXPONENT, reflected_dir
-                        )
                         
                         # Calculate new emitter position (slightly offset from reflection point)
                         offset = 0.1
@@ -550,29 +586,25 @@ def drawThreePointFormRecursive(emitter_pos, walls, reflection_depth, color, ray
                         
                         # Only continue reflection if the reflected ray has a clear path
                         if not is_point_occluded((new_emitter_x, new_emitter_y), (test_end_x, test_end_y), walls, None):
-                            # Calculate color for reflected ray (apply Phong brightness)
-                            if isinstance(current_color, tuple):
-                                reflected_color = tuple(max(0, int(c * phong_brightness)) for c in current_color)
-                            else:
-                                # Convert string color to RGB and apply brightness
-                                base_intensity = 255
-                                intensity = int(base_intensity * phong_brightness)
-                                reflected_color = (intensity, intensity, intensity)
-                            
-                            # Store reflection data for recursive call
+                            # Store reflection data for recursive call (BSDF will be calculated for actual directions)
                             reflection_points.append({
                                 'emitter': (new_emitter_x, new_emitter_y),
-                                'color': reflected_color,
-                                'original_point': (point_x, point_y)
+                                'color': current_color,
+                                'original_point': (point_x, point_y),
+                                'wall': wall,
+                                'incident_dir': incident_dir,
+                                'wall_normal': wall_normal
                             })
     
     # Process reflections recursively
     for reflection_data in reflection_points:
+        # Calculate BSDF-modified color for this reflection using the actual directions to sample points
+        # This will be done in the next recursive call where we know the actual sample directions
         drawThreePointFormRecursive(
             reflection_data['emitter'], 
             walls, 
             reflection_depth + 1, 
-            reflection_data['color'],
+            reflection_data,  # Pass the full reflection data instead of just color
             ray_segments
         )
 
