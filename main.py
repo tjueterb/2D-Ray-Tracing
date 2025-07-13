@@ -677,18 +677,21 @@ def calculate_phong_brightness(incident_dir, wall_normal, wall_reflectance, phon
 def draw():
     display.fill((0, 0, 0))
 
-    for wall in walls:
-        wall.draw()
-
+    # Draw particles first
     for particle in particles:
         particle.draw()
 
+    # Draw rays before walls so walls appear on top
     if DEMO_MODE:
         # Use traditional ray tracing method
         drawRays([ray for ray in rays], [wall for wall in walls])
     else:
         # Use three-point-form method with same emitter position as demo mode
         drawThreePointForm((emitter_x, emitter_y), walls)
+    
+    # Draw walls after rays so they appear on top
+    for wall in walls:
+        wall.draw()
     
     # Draw emitter position and controllable wall indicator in both modes
     pygame.draw.circle(display, (0, 255, 0), (int(emitter_x), int(emitter_y)), 8)
