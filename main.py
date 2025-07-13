@@ -360,9 +360,17 @@ def generateWalls():
 def sample_points_on_wall(wall, num_samples):
     """Sample equally spaced points along a wall in local coordinates"""
     points = []
+    
+    # Add small offset to avoid sampling exactly at endpoints
+    endpoint_offset = 0.05  # 5% offset from each end
+    
     for i in range(num_samples):
-        # Parameter t goes from 0 to 1 along the wall
-        t = i / (num_samples - 1) if num_samples > 1 else 0.5
+        if num_samples == 1:
+            # Single sample at the center
+            t = 0.5
+        else:
+            # Map i from [0, num_samples-1] to [endpoint_offset, 1-endpoint_offset]
+            t = endpoint_offset + (i / (num_samples - 1)) * (1 - 2 * endpoint_offset)
         
         # Interpolate between start and end points
         x = wall.start_pos[0] + t * (wall.end_pos[0] - wall.start_pos[0])
