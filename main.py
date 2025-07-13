@@ -9,12 +9,12 @@ pygame.init()
 
 # -----Options-----
 WINDOW_SIZE = (1920, 1080) # Width x Height in pixels
-NUM_RAYS = 50 # Must be between 1 and 360
+NUM_RAYS = 250 # Must be between 1 and 360
 SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
 NUM_WALLS = 5 # The amount of randomly generated walls
 ENABLE_REFLECTIONS = True # Enable first-order reflections
-MAX_REFLECTIONS = 2 # Maximum number of reflections per ray
-DEMO_MODE = False # Enable demo mode with controllable walls
+MAX_REFLECTIONS = 5 # Maximum number of reflections per ray
+DEMO_MODE = True # Enable demo mode with controllable walls
 #------------------
 
 screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -74,10 +74,11 @@ class Ray:
         return None
 
 class Wall:
-    def __init__(self, start_pos, end_pos, color = 'white'):
+    def __init__(self, start_pos, end_pos, color = 'white', reflects=True):
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.color = color
+        self.reflects = reflects  # Whether this wall reflects rays
         self.slope_x = end_pos[0] - start_pos[0]
         self.slope_y = end_pos[1] - start_pos[1]
         if self.slope_x == 0:
@@ -223,7 +224,7 @@ def drawRays(rays, walls, color = 'white'):
                     lastClosestPoint = closestPoint
                 
                 # Create reflected ray if reflections are enabled and we haven't hit max reflections
-                if ENABLE_REFLECTIONS and reflection_count < MAX_REFLECTIONS and closestWall is not None:
+                if ENABLE_REFLECTIONS and reflection_count < MAX_REFLECTIONS and closestWall is not None and closestWall.reflects:
                     # Calculate reflected direction
                     reflected_dir = closestWall.reflect_ray(current_ray.dir)
                     
@@ -271,9 +272,9 @@ def generateWalls():
     if DEMO_MODE:
         # Demo mode: Two walls at 45 degrees
         # Fixed wall (farther from emitter)
-        fixed_wall_center_x = WINDOW_SIZE[0] * 0.7
-        fixed_wall_center_y = WINDOW_SIZE[1] * 0.3
-        fixed_wall_length = 200
+        fixed_wall_center_x = WINDOW_SIZE[0] * 0.6
+        fixed_wall_center_y = WINDOW_SIZE[1] * 0.2
+        fixed_wall_length = 350
         
         # Calculate wall endpoints for 45-degree angle
         angle_rad = math.radians(45)
@@ -292,7 +293,7 @@ def generateWalls():
         
         # Wall orientation controlled by scroll wheel
         wall_orientation_angle = math.radians(controllable_wall_angle)
-        wall_length = 150
+        wall_length = 250
         wall_half_length = wall_length / 2
         wall_dx = math.cos(wall_orientation_angle) * wall_half_length
         wall_dy = math.sin(wall_orientation_angle) * wall_half_length
@@ -300,6 +301,12 @@ def generateWalls():
         controllable_wall_start = (controllable_center_x - wall_dx, controllable_center_y - wall_dy)
         controllable_wall_end = (controllable_center_x + wall_dx, controllable_center_y + wall_dy)
         walls.append(Wall(controllable_wall_start, controllable_wall_end, 'yellow'))
+        
+        # Non-reflecting wall to the right of the emitter
+        non_reflecting_wall_x = emitter_x + 150  # 150 pixels to the right
+        non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
+        non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
+        walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflects=False))
     else:
         # Original random walls mode
         for i in range(NUM_WALLS):
@@ -364,7 +371,7 @@ while running:
             # Control rotation with scroll wheel
             if event.type == MOUSEWHEEL:
                 # Scroll up (event.y > 0) rotates counter-clockwise, scroll down rotates clockwise
-                controllable_wall_angle += event.y * 2  # 2 degrees per scroll step
+                controllable_wall_angle += event.y * 0.1  # 0.5 degrees per scroll step
                 generateWalls()
             
             # Control distance with arrow keys (for backward compatibility)
