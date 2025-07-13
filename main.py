@@ -292,117 +292,70 @@ def drawRays(rays, walls, color = 'white'):
 def generateWalls():
     walls.clear()
 
-    if DEMO_MODE:
-        # Demo mode: Multiple walls with controllable elements
-        # Fixed wall (farther from emitter)
-        fixed_wall_center_x = WINDOW_SIZE[0] * 0.6
-        fixed_wall_center_y = WINDOW_SIZE[1] * 0.2
-        fixed_wall_length = 350
-        
-        # Calculate wall endpoints for 45-degree angle
-        angle_rad = math.radians(45)
-        half_length = fixed_wall_length / 2
-        dx = math.cos(angle_rad) * half_length
-        dy = math.sin(angle_rad) * half_length
-        
-        fixed_wall_start = (fixed_wall_center_x - dx, fixed_wall_center_y - dy)
-        fixed_wall_end = (fixed_wall_center_x + dx, fixed_wall_center_y + dy)
-        walls.append(Wall(fixed_wall_start, fixed_wall_end, 'red'))
-        
-        # Controllable wall (closer to emitter)
-        # Position directly controlled by mouse
-        controllable_center_x = controllable_wall_x
-        controllable_center_y = controllable_wall_y
-        
-        # Wall orientation controlled by scroll wheel
-        wall_orientation_angle = math.radians(controllable_wall_angle)
-        wall_length = 250
-        wall_half_length = wall_length / 2
-        wall_dx = math.cos(wall_orientation_angle) * wall_half_length
-        wall_dy = math.sin(wall_orientation_angle) * wall_half_length
-        
-        controllable_wall_start = (controllable_center_x - wall_dx, controllable_center_y - wall_dy)
-        controllable_wall_end = (controllable_center_x + wall_dx, controllable_center_y + wall_dy)
-        walls.append(Wall(controllable_wall_start, controllable_wall_end, 'yellow'))
-        
-        # Second static wall (below the first one, also at 45 degrees)
-        second_wall_center_x = WINDOW_SIZE[0] * 0.6
-        second_wall_center_y = WINDOW_SIZE[1] * 0.8  # Lower than the first wall
-        second_wall_length = 350
-        
-        # Calculate wall endpoints for 45-degree angle (same as first wall)
-        second_angle_rad = math.radians(45)
-        second_half_length = second_wall_length / 2
-        second_dx = math.cos(second_angle_rad) * second_half_length
-        second_dy = math.sin(second_angle_rad) * second_half_length
-        
-        second_wall_start = (second_wall_center_x - second_dx, second_wall_center_y - second_dy)
-        second_wall_end = (second_wall_center_x + second_dx, second_wall_center_y + second_dy)
-        walls.append(Wall(second_wall_start, second_wall_end, 'orange'))
-        
-        # Non-reflecting wall to the right of the emitter
-        non_reflecting_wall_x = emitter_x + 150  # 150 pixels to the right
-        non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
-        non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
-        walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
-    else:
-        # Alternative mode - Three-point-form ray tracing with same walls as demo mode
-        # Fixed wall (farther from emitter)
-        fixed_wall_center_x = WINDOW_SIZE[0] * 0.6
-        fixed_wall_center_y = WINDOW_SIZE[1] * 0.2
-        fixed_wall_length = 350
-        
-        # Calculate wall endpoints for 45-degree angle
-        angle_rad = math.radians(45)
-        half_length = fixed_wall_length / 2
-        dx = math.cos(angle_rad) * half_length
-        dy = math.sin(angle_rad) * half_length
-        
-        fixed_wall_start = (fixed_wall_center_x - dx, fixed_wall_center_y - dy)
-        fixed_wall_end = (fixed_wall_center_x + dx, fixed_wall_center_y + dy)
-        walls.append(Wall(fixed_wall_start, fixed_wall_end, 'red'))
-        
-        # Controllable wall (closer to emitter)
-        # Position directly controlled by mouse
-        controllable_center_x = controllable_wall_x
-        controllable_center_y = controllable_wall_y
-        
-        # Wall orientation controlled by scroll wheel
-        wall_orientation_angle = math.radians(controllable_wall_angle)
-        wall_length = 250
-        wall_half_length = wall_length / 2
-        wall_dx = math.cos(wall_orientation_angle) * wall_half_length
-        wall_dy = math.sin(wall_orientation_angle) * wall_half_length
-        
-        controllable_wall_start = (controllable_center_x - wall_dx, controllable_center_y - wall_dy)
-        controllable_wall_end = (controllable_center_x + wall_dx, controllable_center_y + wall_dy)
-        walls.append(Wall(controllable_wall_start, controllable_wall_end, 'yellow'))
-        
-        # Second static wall (below the first one, also at 45 degrees)
-        second_wall_center_x = WINDOW_SIZE[0] * 0.6
-        second_wall_center_y = WINDOW_SIZE[1] * 0.8  # Lower than the first wall
-        second_wall_length = 350
-        
-        # Calculate wall endpoints for 45-degree angle (same as first wall)
-        second_angle_rad = math.radians(45)
-        second_half_length = second_wall_length / 2
-        second_dx = math.cos(second_angle_rad) * second_half_length
-        second_dy = math.sin(second_angle_rad) * second_half_length
-        
-        second_wall_start = (second_wall_center_x - second_dx, second_wall_center_y - second_dy)
-        second_wall_end = (second_wall_center_x + second_dx, second_wall_center_y + second_dy)
-        walls.append(Wall(second_wall_start, second_wall_end, 'orange'))
-        
-        # Non-reflecting wall to the right of the emitter
-        non_reflecting_wall_x = emitter_x + 150  # 150 pixels to the right
-        non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
-        non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
-        walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
-        # Non-reflecting wall to the right of the emitter
-        non_reflecting_wall_x = emitter_x + 550  # 150 pixels to the right
-        non_reflecting_wall_start = (non_reflecting_wall_x, emitter_y - 550)
-        non_reflecting_wall_end = (non_reflecting_wall_x, emitter_y + 350)
-        walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
+    # Fixed wall (farther from emitter)
+    fixed_wall_center_x = WINDOW_SIZE[0] * 0.6
+    fixed_wall_center_y = WINDOW_SIZE[1] * 0.2
+    fixed_wall_length = 350
+    
+    # Calculate wall endpoints for 45-degree angle
+    angle_rad = math.radians(45)
+    half_length = fixed_wall_length / 2
+    dx = math.cos(angle_rad) * half_length
+    dy = math.sin(angle_rad) * half_length
+    
+    fixed_wall_start = (fixed_wall_center_x - dx, fixed_wall_center_y - dy)
+    fixed_wall_end = (fixed_wall_center_x + dx, fixed_wall_center_y + dy)
+    walls.append(Wall(fixed_wall_start, fixed_wall_end, 'red'))
+    
+    # Controllable wall (closer to emitter)
+    # Position directly controlled by mouse
+    controllable_center_x = controllable_wall_x
+    controllable_center_y = controllable_wall_y
+    
+    # Wall orientation controlled by scroll wheel
+    wall_orientation_angle = math.radians(controllable_wall_angle)
+    wall_length = 250
+    wall_half_length = wall_length / 2
+    wall_dx = math.cos(wall_orientation_angle) * wall_half_length
+    wall_dy = math.sin(wall_orientation_angle) * wall_half_length
+    
+    controllable_wall_start = (controllable_center_x - wall_dx, controllable_center_y - wall_dy)
+    controllable_wall_end = (controllable_center_x + wall_dx, controllable_center_y + wall_dy)
+    walls.append(Wall(controllable_wall_start, controllable_wall_end, 'yellow'))
+    
+    # Second static wall (below the first one, also at 45 degrees)
+    second_wall_center_x = WINDOW_SIZE[0] * 0.6
+    second_wall_center_y = WINDOW_SIZE[1] * 0.8  # Lower than the first wall
+    second_wall_length = 350
+    
+    # Calculate wall endpoints for 45-degree angle (same as first wall)
+    second_angle_rad = math.radians(45)
+    second_half_length = second_wall_length / 2
+    second_dx = math.cos(second_angle_rad) * second_half_length
+    second_dy = math.sin(second_angle_rad) * second_half_length
+    
+    second_wall_start = (second_wall_center_x - second_dx, second_wall_center_y - second_dy)
+    second_wall_end = (second_wall_center_x + second_dx, second_wall_center_y + second_dy)
+    walls.append(Wall(second_wall_start, second_wall_end, 'orange'))
+
+    
+    # Non-reflecting wall to the right of the emitter
+    non_reflecting_wall_x = WINDOW_SIZE[0]*0.2
+    non_reflecting_wall_start = (non_reflecting_wall_x, WINDOW_SIZE[1])
+    non_reflecting_wall_end = (non_reflecting_wall_x, WINDOW_SIZE[1]*0.4)
+    walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
+    
+    # Non-reflecting wall to the right of the emitter
+    non_reflecting_wall_x = WINDOW_SIZE[0]*0.5
+    non_reflecting_wall_start = (second_wall_center_x - second_dx, second_wall_center_y - second_dy)
+    non_reflecting_wall_end =  (second_wall_center_x - second_dx, WINDOW_SIZE[1])
+    walls.append(Wall(non_reflecting_wall_start, non_reflecting_wall_end, 'blue', reflectance=0.0))
+    
+    if not DEMO_MODE:
+        right_wall_start = (WINDOW_SIZE[0]*0.99, second_wall_center_y - second_dy)
+        right_wall_end = (WINDOW_SIZE[0]*0.99, second_wall_center_y + second_dy)
+        walls.append(Wall(right_wall_start, right_wall_end, 'orange'))
+    
 
 def sample_points_on_wall(wall, num_samples):
     """Sample equally spaced points along a wall in local coordinates"""
