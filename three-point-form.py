@@ -11,8 +11,6 @@ pygame.init()
 WINDOW_SIZE = (1920, 1080) # Width x Height in pixels
 NUM_RAYS = 250 # Must be between 1 and 360
 NUM_SAMPLES = 6 # Number of sample points per wall for three-point-form method
-SOLID_RAYS = False # Can be somewhat glitchy. For best results, set NUM_RAYS to 360
-ENABLE_REFLECTIONS = True # Enable first-order reflections
 MAX_REFLECTIONS = 3 # Maximum number of reflections per ray
 PHONG_EXPONENT = 200 # Phong exponent for specular reflections (higher = more specular)
 DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
@@ -231,12 +229,9 @@ def drawRays(rays, walls, color = 'white'):
                     'reflection_order': reflection_count
                 })
                 
-                if SOLID_RAYS:
-                    pygame.draw.polygon(display, current_color, [(mx, my), closestPoint, lastClosestPoint])
-                    lastClosestPoint = closestPoint
                 
                 # Create reflected ray if reflections are enabled and we haven't hit max reflections
-                if ENABLE_REFLECTIONS and reflection_count < MAX_REFLECTIONS and closestWall is not None and closestWall.reflectance > 0:
+                if reflection_count < MAX_REFLECTIONS and closestWall is not None and closestWall.reflectance > 0:
                     # Calculate reflected direction
                     reflected_dir = closestWall.reflect_ray(current_ray.dir)
                     
@@ -270,9 +265,6 @@ def drawRays(rays, walls, color = 'white'):
                     'reflection_order': reflection_count
                 })
                 
-                if SOLID_RAYS:
-                    pygame.draw.polygon(display, current_color, [(mx, my), ray_end, lastClosestPoint])
-                    lastClosestPoint = ray_end
                 break  # No collision found
     
     # Draw ray segments sorted by brightness (darkest first, brightest last)
