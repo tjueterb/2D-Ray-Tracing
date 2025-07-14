@@ -30,8 +30,8 @@ particles = []
 emitter_x = WINDOW_SIZE[0] * 0.05
 emitter_y = WINDOW_SIZE[1]*0.9
 controllable_wall_angle = 135  # degrees
-controllable_wall_x = 400  # X position of controllable wall
-controllable_wall_y = 400  # Y position of controllable wall
+controllable_wall_x = WINDOW_SIZE[0] * 0.67  # Relative to window width (~400px at 600px width)
+controllable_wall_y = WINDOW_SIZE[1] * 1.6   # Relative to window height (~400px at 250px height)
 
 class Ray:
     def __init__(self, x, y, angle, reflection_depth=0):
@@ -287,7 +287,7 @@ def generateWalls():
     # Fixed wall (farther from emitter)
     fixed_wall_center_x = WINDOW_SIZE[0] * 0.6
     fixed_wall_center_y = WINDOW_SIZE[1] * 0.2
-    fixed_wall_length = 350
+    fixed_wall_length = WINDOW_SIZE[0] * 0.18  # ~350px at 1920px width (350/1920 ≈ 0.18)
     
     # Calculate wall endpoints for 45-degree angle
     angle_rad = math.radians(45)
@@ -306,7 +306,7 @@ def generateWalls():
     
     # Wall orientation controlled by scroll wheel
     wall_orientation_angle = math.radians(controllable_wall_angle)
-    wall_length = 250
+    wall_length = WINDOW_SIZE[0] * 0.13  # ~250px at 1920px width (250/1920 ≈ 0.13)
     wall_half_length = wall_length / 2
     wall_dx = math.cos(wall_orientation_angle) * wall_half_length
     wall_dy = math.sin(wall_orientation_angle) * wall_half_length
@@ -318,7 +318,7 @@ def generateWalls():
     # Second static wall (below the first one, also at 45 degrees)
     second_wall_center_x = WINDOW_SIZE[0] * 0.6
     second_wall_center_y = WINDOW_SIZE[1] * 0.8  # Lower than the first wall
-    second_wall_length = 350
+    second_wall_length = WINDOW_SIZE[0] * 0.18  # Same size as fixed wall
     
     # Calculate wall endpoints for 45-degree angle (same as first wall)
     second_angle_rad = math.radians(45)
