@@ -812,7 +812,7 @@ while running:
                 
                 generateWalls()
             # Re-randomize walls on Space (only works in demo mode)
-            elif event.key == pygame.K_SPACE and DIRECTION_SAMPLING:
+            elif event.key == pygame.K_SPACE and not SURFACE_SAMPLING:
                 generateWalls()
             # Wall controls (work in both modes)
             elif event.key == pygame.K_LEFT:
@@ -830,10 +830,10 @@ while running:
                 generateWalls()
             # Phong exponent controls (work in both modes)
             elif event.key == pygame.K_q:
-                PHONG_EXPONENT = max(1, PHONG_EXPONENT - 2)  # Decrease specularity
+                PHONG_EXPONENT = max(1, PHONG_EXPONENT/2)  # Decrease specularity
                 print(f"Phong exponent decreased to: {PHONG_EXPONENT}")
             elif event.key == pygame.K_e:
-                PHONG_EXPONENT = min(64, PHONG_EXPONENT + 2)  # Increase specularity
+                PHONG_EXPONENT = min(10000, PHONG_EXPONENT*2)  # Increase specularity
                 print(f"Phong exponent increased to: {PHONG_EXPONENT}")
             # Reset controllable wall angle
             elif event.key == pygame.K_r:
