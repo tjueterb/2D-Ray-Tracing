@@ -12,17 +12,12 @@ This project was forked from [000Nobody/2D-Ray-Tracing](https://github.com/000No
 
 ## Moving reflector
 
-<div style="display: flex; justify-content: space-between;">
-    <div style="flex: 1; margin-right: 5px;">
-        <img src="resources/direction_sampling.png" alt="Direction Sampling" width="100%">
-        <p style="text-align: center;"><em>Direction Sampling</em></p>
-    </div>
-    <div style="flex: 1; margin-left: 5px;">
-        <img src="resources/surface_sampling.png" alt="Surface Sampling" width="100%">
-        <p style="text-align: center;"><em>Surface Sampling</em></p>
-    </div>
+<div align="center">
+    <img src="resources/direction_sampling.png" alt="Direction Sampling" width="49%">
+    <img src="resources/surface_sampling.png" alt="Surface Sampling" width="49%">
 </div>
-<p>Ray Tracing with specular reflections. Static emitter, moving reflector. Additional toggling between direction sampling and surface sampling.</p>
+
+<p>Ray Tracing with specular reflections. Static emitter, moving reflector. Additional toggling between direction sampling (left image) and surface sampling (right image).</p>
 
 * `$ python moving-reflector.py`
 - **Mouse Move**: Move controllable wall position
