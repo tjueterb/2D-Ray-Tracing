@@ -13,7 +13,7 @@ NUM_RAYS = 250 # Must be between 1 and 360
 NUM_SAMPLES = 6 # Number of sample points per wall for three-point-form method
 MAX_REFLECTIONS = 3 # Maximum number of reflections per ray
 PHONG_EXPONENT = 200 # Phong exponent for specular reflections (higher = more specular)
-DEMO_MODE = True # Enable demo mode with controllable walls (default mode)
+DIRECTION_SAMPLING = True # Enable demo mode with controllable walls (default mode)
 #------------------
 
 screen = pygame.display.set_mode(WINDOW_SIZE)
@@ -747,7 +747,7 @@ def draw():
         particle.draw()
 
     # Draw rays before walls so walls appear on top
-    if DEMO_MODE:
+    if DIRECTION_SAMPLING:
         # Use traditional ray tracing method
         drawRays([ray for ray in rays], [wall for wall in walls])
     else:
@@ -780,7 +780,7 @@ while running:
         if event.type == KEYDOWN:
             # Control number of rays/samples with Up/Down arrows (works in both modes)
             if event.key == pygame.K_UP:
-                if DEMO_MODE:
+                if DIRECTION_SAMPLING:
                     NUM_RAYS = min(360, NUM_RAYS + 10)  # Increase by 10, max 360
                     print(f"Rays increased to: {NUM_RAYS}")  # Debug output
                     regenerate_rays()
@@ -788,22 +788,22 @@ while running:
                     NUM_SAMPLES = min(100, NUM_SAMPLES + 1)  # Increase by 5, max 100
                     print(f"Samples increased to: {NUM_SAMPLES}")  # Debug output
             elif event.key == pygame.K_DOWN:
-                if DEMO_MODE:
+                if DIRECTION_SAMPLING:
                     NUM_RAYS = max(10, NUM_RAYS - 10)  # Decrease by 10, min 10
                     print(f"Rays decreased to: {NUM_RAYS}")  # Debug output
                     regenerate_rays()
                 else:
                     NUM_SAMPLES = max(1, NUM_SAMPLES - 1)  # Decrease by 5, min 1
                     print(f"Samples decreased to: {NUM_SAMPLES}")  # Debug output
-            elif event.key == pygame.K_t and DEMO_MODE:
+            elif event.key == pygame.K_t and DIRECTION_SAMPLING:
                 # Toggle between 250 and 20 rays in demo mode
                 NUM_RAYS = 20 if NUM_RAYS == 250 else 250
                 print(f"Toggled rays to: {NUM_RAYS}")
                 regenerate_rays()
             # Toggle between demo mode and alternative mode with 'D' key
             elif event.key == pygame.K_d:
-                DEMO_MODE = not DEMO_MODE
-                if not DEMO_MODE:
+                DIRECTION_SAMPLING = not DIRECTION_SAMPLING
+                if not DIRECTION_SAMPLING:
                     print("Switched to three-point-form")
                     # MAX_REFLECTIONS = 1
                 else:
@@ -812,7 +812,7 @@ while running:
                 
                 generateWalls()
             # Re-randomize walls on Space (only works in demo mode)
-            elif event.key == pygame.K_SPACE and DEMO_MODE:
+            elif event.key == pygame.K_SPACE and DIRECTION_SAMPLING:
                 generateWalls()
             # Wall controls (work in both modes)
             elif event.key == pygame.K_LEFT:
