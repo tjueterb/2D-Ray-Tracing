@@ -11,19 +11,19 @@ This project adds moving-reflector.py that models reflections, and also adds a c
 * Clone GitHub repository
 * Download required dependencies: `$ pip install -r requirements.txt`
 
-## Using main.py
+## Moving emitter
 
 Ray Tracing without reflections, moving emitter
 
-* `$ python main.py`
+* `$ python moving-emitter.py`
 * Feel free to edit the options at the top of the script
 * Move the ray source with the mouse, randomize the walls with the space key
 
-## Using surface-sampling (three-point-form.py)
+## Moving reflector
 
-Ray Tracing with specular reflections, moving surface
+Ray Tracing with specular reflections, moving reflector. Additional toggling between direction sampling and surface sampling.
 
-* `$ python three-point-form.py`
+* `$ python moving-reflector.py`
 - **Mouse Move**: Move controllable wall position
 - **Mouse Wheel**: Fine-rotate controllable wall
 - **A**: Rotate controllable wall counter-clockwise
